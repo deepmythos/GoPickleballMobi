@@ -19,15 +19,20 @@ const SHELL_ASSETS = [
   "./icons/icon-maskable-512.png",
 ];
 
-function computeBuildId(): string {
+// Hậu tố `-dirty` chỉ có nghĩa "có thay đổi CHƯA commit trên file ĐÃ THEO DÕI" — đúng như
+// điều nó tự khai. File KHÔNG được theo dõi (`.vercel/`, cache, rác của container build) không
+// đi vào bundle nên không được tính là bẩn: bản cũ hỏi `git status --porcelain` (tính cả chúng)
+// nên bản deploy sạch vẫn tự nhận là "<sha>-dirty".
+// `cwd` có tham số để test khẳng định được luật này trên một repo git tạm.
+export function computeBuildId(cwd: string = rootDir): string {
   try {
     const id = execFileSync("git", ["rev-parse", "--short=12", "HEAD"], {
-      cwd: rootDir,
+      cwd,
       encoding: "utf8",
     }).trim();
     if (!id) return "dev";
-    const dirty = execFileSync("git", ["status", "--porcelain"], {
-      cwd: rootDir,
+    const dirty = execFileSync("git", ["status", "--porcelain", "--untracked-files=no"], {
+      cwd,
       encoding: "utf8",
     }).trim();
     return dirty ? `${id}-dirty` : id;

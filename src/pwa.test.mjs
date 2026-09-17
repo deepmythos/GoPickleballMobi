@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { existsSync, readFileSync, readdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
 
@@ -47,13 +48,37 @@ function assertIosHead(html) {
   expect(hasThemeColor(html, "dark")).toBe(true);
 }
 
+// File KHÔNG được theo dõi và KHÔNG nằm trong .gitignore — mô phỏng rác của container build
+// (`.vercel/`, cache) đã làm marker thành "<sha>-dirty" trên bản deploy sạch.
+const UNTRACKED_MARKER = ".build-id-untracked-pin";
+
 let build = null;
+let trackedDirtyAtBuild = false;
+
+function trackedChangesAt(dir) {
+  return execFileSync("git", ["status", "--porcelain", "--untracked-files=no"], {
+    cwd: dir,
+    encoding: "utf8",
+  }).trim();
+}
 
 beforeAll(() => {
-  execFileSync(process.execPath, [resolve(root, "node_modules/vite/bin/vite.js"), "build"], {
-    cwd: root,
-    stdio: "pipe",
-  });
+  const marker = resolve(root, UNTRACKED_MARKER);
+  writeFileSync(marker, "pin: file khong duoc theo doi (mo phong .vercel/ trong container build)\n");
+  try {
+    // Tự kiểm chứng cái pin: file phải HIỆN ra ở `git status --porcelain`, tức là không bị .gitignore.
+    // Nếu nó bị bỏ qua thì pin này vô nghĩa (bug cũ không kích hoạt) → báo lỗi ngay.
+    if (!execFileSync("git", ["status", "--porcelain", "--", UNTRACKED_MARKER], { cwd: root, encoding: "utf8" }).trim()) {
+      throw new Error(`${UNTRACKED_MARKER} phải là file không được theo dõi và không bị .gitignore.`);
+    }
+    execFileSync(process.execPath, [resolve(root, "node_modules/vite/bin/vite.js"), "build"], {
+      cwd: root,
+      stdio: "pipe",
+    });
+    trackedDirtyAtBuild = trackedChangesAt(root).length > 0;
+  } finally {
+    rmSync(marker, { force: true });
+  }
   build = JSON.parse(readText("dist", "build.json"));
 }, 120000);
 
@@ -171,13 +196,40 @@ describe("PWA artifacts", () => {
     expect(sw).toContain("geocoding-api.open-meteo.com");
   });
 
-  it("12. dist/build.json khớp git HEAD và time hợp lệ", () => {
+  it("12. dist/build.json khớp git HEAD — file KHÔNG theo dõi không được làm bẩn marker", () => {
     const expected = execFileSync("git", ["rev-parse", "--short=12", "HEAD"], {
       cwd: root,
       encoding: "utf8",
     }).trim();
-    expect(build.id === expected || build.id === `${expected}-dirty`).toBe(true);
+    // Lúc build trong beforeAll LUÔN tồn tại một file không được theo dõi (UNTRACKED_MARKER) — đúng
+    // hình dạng container build của Vercel. Hậu tố `-dirty` chỉ được phép xuất hiện khi có thay đổi
+    // chưa commit trên file ĐÃ THEO DÕI; bản cũ (tính cả file không theo dõi) làm khẳng định này ĐỎ.
+    expect(build.id).toBe(trackedDirtyAtBuild ? `${expected}-dirty` : expected);
     expect(Number.isNaN(Date.parse(build.time))).toBe(false);
+  });
+
+  it("12b. computeBuildId(): file không theo dõi KHÔNG làm bẩn, file đã theo dõi bị sửa thì CÓ", async () => {
+    const { computeBuildId } = await import("../vite.config.ts");
+    const dir = mkdtempSync(join(tmpdir(), "gpm-buildid-"));
+    const git = (...args) =>
+      execFileSync("git", args, { cwd: dir, encoding: "utf8", stdio: "pipe" }).trim();
+    try {
+      git("init", "-q", "-b", "main");
+      writeFileSync(join(dir, "tracked.txt"), "a\n");
+      git("add", "tracked.txt");
+      git("-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "commit.gpgsign=false", "commit", "-qm", "init");
+      const head = git("rev-parse", "--short=12", "HEAD");
+      expect(computeBuildId(dir)).toBe(head);
+      // Rác của container build: KHÔNG được sinh hậu tố -dirty (đây là chính cái bug đã lên production).
+      writeFileSync(join(dir, "untracked.ci"), "x\n");
+      expect(git("status", "--porcelain").length).toBeGreaterThan(0);
+      expect(computeBuildId(dir)).toBe(head);
+      // Đối chứng: sửa một file ĐÃ theo dõi thì vẫn phải là -dirty.
+      writeFileSync(join(dir, "tracked.txt"), "b\n");
+      expect(computeBuildId(dir)).toBe(`${head}-dirty`);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it("13. bundle JS đã build chứa build id", () => {
