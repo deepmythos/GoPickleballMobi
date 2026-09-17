@@ -1,8 +1,8 @@
 import type { AirQualityData, ForecastData, GeocodingResult } from "../api";
 import type { Evaluation } from "../evaluate";
 import type { BaseUrls, GeoLocation, Lang } from "../types";
+import type { SheetState } from "./sheet";
 
-export type Panel = "none" | "location" | "time" | "settings";
 export type ThemeChoice = "system" | "light" | "dark";
 export type GeoStatus = "idle" | "loading" | "done" | "error";
 
@@ -22,7 +22,10 @@ export interface AppState {
   air: AirQualityData | null;
   fetchedAt: string | null;
   fetching: boolean;
-  panel: Panel;
+  /** Tầng 1: đúng một bottom sheet đang mở (hoặc "none"). Mọi thay đổi qua sheetReducer. */
+  sheet: SheetState;
+  /** Panel "điều kiện thô" mặc định gấp; chỉ mở khi người dùng chạm. */
+  rawOpen: boolean;
   geoStatus: GeoStatus;
   geoResults: GeocodingResult[];
   searchQuery: string;
@@ -34,8 +37,9 @@ export interface AppState {
 }
 
 export interface Actions {
-  openPanel: (panel: Panel) => void;
-  closePanel: () => void;
+  openSheet: (panel: "inputs" | "location") => void;
+  closeSheet: () => void;
+  toggleRaw: () => void;
   setLang: (lang: Lang) => void;
   setTheme: (theme: ThemeChoice) => void;
   setBearing: (bearing: number) => void;

@@ -8,9 +8,10 @@ import {
   type MessageKey,
 } from "../i18n";
 import { FACTOR_META } from "../scoring";
-import { formatUtcOffset, APP_TIMEZONE, formatLocalISO } from "../time";
+import { APP_TIMEZONE, formatLocalISO } from "../time";
 import { BUILD_ID, BUILD_TIME } from "../build";
 import type { Lang } from "../types";
+import { isSheetOpen, type SheetPanel } from "./sheet";
 import { factorIcon, gateIcon, makeIcon, ICONS } from "./icons";
 import type { Actions, AppState } from "./state";
 
@@ -56,6 +57,21 @@ function svgEl(tag: string, attrs: Attrs = {}, ...children: Child[]): SVGElement
 }
 
 const MSG = (key: string): MessageKey => key as MessageKey;
+
+/** Host thật của một URL dữ liệu; lỗi parse thì trả nguyên chuỗi. */
+export function hostOf(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return url;
+  }
+}
+
+/** Đưa ô nhập vào tầm nhìn khi bàn phím iOS mở ra (không để bàn phím che). */
+function focusScroll(e: FocusEvent): void {
+  const target = e.target as HTMLElement | null;
+  target?.scrollIntoView({ block: "nearest" });
+}
 
 function signed(lang: Lang, value: number): string {
   if (value === 0) return "0";
@@ -260,7 +276,7 @@ function stat(label: string, value: string): HTMLElement {
   );
 }
 
-function renderRaw(state: AppState): HTMLElement {
+function renderRaw(state: AppState, actions: Actions): HTMLElement {
   const ev = state.evaluation!;
   const lang = state.lang;
   const p = ev.point;
@@ -275,36 +291,48 @@ function renderRaw(state: AppState): HTMLElement {
         ? `${formatNumber(lang, v / 1000, { maximumFractionDigits: 1 })} km`
         : `${formatNumber(lang, v)} m`;
 
+  // Chỉ dựng 21 ô "thông số thô" khi panel thực sự đang mở.
+  const buildStats = (): HTMLElement[] => [
+    stat(t(lang, "raw.temperature"), u(p.temperature_2m, t(lang, "unit.celsius"), { maximumFractionDigits: 1 })),
+    stat(t(lang, "raw.apparent"), u(p.apparent_temperature, t(lang, "unit.celsius"), { maximumFractionDigits: 1 })),
+    stat(t(lang, "raw.humidity"), u(p.relative_humidity_2m, t(lang, "unit.percent"))),
+    stat(t(lang, "raw.dewPoint"), u(p.dew_point_2m, t(lang, "unit.celsius"), { maximumFractionDigits: 1 })),
+    stat(t(lang, "raw.precipitation"), u(p.precipitation, t(lang, "unit.mm"), { maximumFractionDigits: 1 })),
+    stat(t(lang, "raw.precipProbability"), u(p.precipitation_probability, t(lang, "unit.percent"))),
+    stat(t(lang, "raw.rain"), u(p.rain, t(lang, "unit.mm"), { maximumFractionDigits: 1 })),
+    stat(t(lang, "raw.weatherCode"), weatherText(lang, p.weather_code)),
+    stat(t(lang, "raw.cloudCover"), u(p.cloud_cover, t(lang, "unit.percent"))),
+    stat(t(lang, "raw.visibility"), visibility(p.visibility)),
+    stat(t(lang, "raw.windSpeed"), u(p.wind_speed_10m, t(lang, "unit.kmh"), { maximumFractionDigits: 1 })),
+    stat(t(lang, "raw.windGust"), u(p.wind_gusts_10m, t(lang, "unit.kmh"), { maximumFractionDigits: 1 })),
+    stat(t(lang, "raw.uvIndex"), n(p.uv_index, { maximumFractionDigits: 1 })),
+    stat(t(lang, "raw.isDay"), p.is_day === null ? "—" : p.is_day === 1 ? t(lang, "raw.day") : t(lang, "raw.night")),
+    stat(t(lang, "raw.sunElevation"), u(ev.sun.elevation, t(lang, "unit.deg"), { maximumFractionDigits: 1 })),
+    stat(t(lang, "raw.sunAzimuth"), u(ev.sun.azimuth, t(lang, "unit.deg"), { maximumFractionDigits: 0 })),
+    stat(t(lang, "raw.sunrise"), ev.sunrise ? formatClock(lang, ev.sunrise) : "—"),
+    stat(t(lang, "raw.sunset"), ev.sunset ? formatClock(lang, ev.sunset) : "—"),
+    stat(t(lang, "raw.pm25"), u(ev.pm25, "µg/m³", { maximumFractionDigits: 1 })),
+    stat(t(lang, "raw.pm10"), u(ev.pm10, "µg/m³", { maximumFractionDigits: 1 })),
+    stat(t(lang, "raw.europeanAqi"), n(ev.aqi)),
+  ];
+
   return h(
     "section",
     { class: "section raw" },
     h("div", { class: "section-head" }, h("h2", { text: t(lang, "raw.title") })),
     h("p", { class: "section-sub", text: t(lang, "raw.subtitle") }),
     h(
-      "dl",
-      { class: "stat-grid" },
-      stat(t(lang, "raw.temperature"), u(p.temperature_2m, t(lang, "unit.celsius"), { maximumFractionDigits: 1 })),
-      stat(t(lang, "raw.apparent"), u(p.apparent_temperature, t(lang, "unit.celsius"), { maximumFractionDigits: 1 })),
-      stat(t(lang, "raw.humidity"), u(p.relative_humidity_2m, t(lang, "unit.percent"))),
-      stat(t(lang, "raw.dewPoint"), u(p.dew_point_2m, t(lang, "unit.celsius"), { maximumFractionDigits: 1 })),
-      stat(t(lang, "raw.precipitation"), u(p.precipitation, t(lang, "unit.mm"), { maximumFractionDigits: 1 })),
-      stat(t(lang, "raw.precipProbability"), u(p.precipitation_probability, t(lang, "unit.percent"))),
-      stat(t(lang, "raw.rain"), u(p.rain, t(lang, "unit.mm"), { maximumFractionDigits: 1 })),
-      stat(t(lang, "raw.weatherCode"), weatherText(lang, p.weather_code)),
-      stat(t(lang, "raw.cloudCover"), u(p.cloud_cover, t(lang, "unit.percent"))),
-      stat(t(lang, "raw.visibility"), visibility(p.visibility)),
-      stat(t(lang, "raw.windSpeed"), u(p.wind_speed_10m, t(lang, "unit.kmh"), { maximumFractionDigits: 1 })),
-      stat(t(lang, "raw.windGust"), u(p.wind_gusts_10m, t(lang, "unit.kmh"), { maximumFractionDigits: 1 })),
-      stat(t(lang, "raw.uvIndex"), n(p.uv_index, { maximumFractionDigits: 1 })),
-      stat(t(lang, "raw.isDay"), p.is_day === null ? "—" : p.is_day === 1 ? t(lang, "raw.day") : t(lang, "raw.night")),
-      stat(t(lang, "raw.sunElevation"), u(ev.sun.elevation, t(lang, "unit.deg"), { maximumFractionDigits: 1 })),
-      stat(t(lang, "raw.sunAzimuth"), u(ev.sun.azimuth, t(lang, "unit.deg"), { maximumFractionDigits: 0 })),
-      stat(t(lang, "raw.sunrise"), ev.sunrise ? formatClock(lang, ev.sunrise) : "—"),
-      stat(t(lang, "raw.sunset"), ev.sunset ? formatClock(lang, ev.sunset) : "—"),
-      stat(t(lang, "raw.pm25"), u(ev.pm25, "µg/m³", { maximumFractionDigits: 1 })),
-      stat(t(lang, "raw.pm10"), u(ev.pm10, "µg/m³", { maximumFractionDigits: 1 })),
-      stat(t(lang, "raw.europeanAqi"), n(ev.aqi)),
+      "button",
+      {
+        class: "raw-toggle",
+        type: "button",
+        "aria-expanded": state.rawOpen ? "true" : "false",
+        onclick: actions.toggleRaw,
+      },
+      h("span", { text: t(lang, state.rawOpen ? "panel.hideRaw" : "panel.showRaw") }),
+      makeIcon(ICONS.chevronDown, 18, state.rawOpen ? "rotate" : ""),
     ),
+    state.rawOpen ? h("dl", { class: "stat-grid" }, ...buildStats()) : null,
   );
 }
 
@@ -331,10 +359,18 @@ function renderStatus(state: AppState, actions: Actions): HTMLElement | null {
     return h(
       "section",
       { class: "section status loading" },
-      h("div", { class: "skeleton skeleton-hero" }),
+      h(
+        "div",
+        { class: "skeleton-hero" },
+        h("div", { class: "skeleton skeleton-ring" }),
+        h("div", { class: "skeleton skeleton-hero-meta" }),
+      ),
       h("div", { class: "skeleton skeleton-line" }),
       h("div", { class: "skeleton skeleton-line short" }),
-      h("p", { class: "status-text", text: t(lang, "status.loading") }),
+      h("p", {
+        class: "status-text",
+        text: t(lang, "status.loadingHost", { host: hostOf(state.baseUrls.forecastBase) }),
+      }),
     );
   }
   if (state.status === "error" && !state.evaluation) {
@@ -428,40 +464,18 @@ function renderBanner(state: AppState): HTMLElement | null {
   return h("div", { class: "banners" }, ...parts);
 }
 
-function renderFooter(state: AppState, actions: Actions): HTMLElement {
+function renderFooter(state: AppState): HTMLElement {
   const lang = state.lang;
   const ev = state.evaluation;
-  const host = (url: string) => {
-    try {
-      return new URL(url).host;
-    } catch {
-      return url;
-    }
-  };
   return h(
     "footer",
     { class: "footer" },
     h(
       "div",
-      { class: "footer-row" },
-      h(
-        "div",
-        { class: "footer-sources" },
-        h("span", { class: "footer-label", text: t(lang, "footer.source") }),
-        h("span", { text: `${t(lang, "footer.forecast")}: ${host(state.baseUrls.forecastBase)}` }),
-        h("span", { text: `${t(lang, "footer.air")}: ${host(state.baseUrls.airQualityBase)}` }),
-      ),
-      h(
-        "button",
-        {
-          class: "btn ghost",
-          type: "button",
-          onclick: actions.refresh,
-          "aria-label": t(lang, "footer.refresh"),
-        },
-        makeIcon(state.fetching ? ICONS.loader : ICONS.refresh, 16, state.fetching ? "spin" : ""),
-        h("span", { text: t(lang, state.fetching ? "status.refreshing" : "footer.refresh") }),
-      ),
+      { class: "footer-sources" },
+      h("span", { class: "footer-label", text: t(lang, "footer.source") }),
+      h("span", { text: `${t(lang, "footer.forecast")}: ${hostOf(state.baseUrls.forecastBase)}` }),
+      h("span", { text: `${t(lang, "footer.air")}: ${hostOf(state.baseUrls.airQualityBase)}` }),
     ),
     h(
       "div",
@@ -469,88 +483,82 @@ function renderFooter(state: AppState, actions: Actions): HTMLElement {
       h("span", {
         text: `${t(lang, "footer.fetched")}: ${ev ? fetchedLabel(lang, ev.dataSource.fetchedAt) : "—"}`,
       }),
-      h("span", { text: `${t(lang, "footer.timezone")}: Europe/Berlin` }),
+      h("span", { text: `${t(lang, "footer.timezone")}: ${APP_TIMEZONE}` }),
     ),
   );
 }
 
-function renderHeader(state: AppState, actions: Actions): HTMLElement {
-  const lang = state.lang;
-  const nextLang: Record<Lang, Lang> = { vi: "de", de: "en", en: "vi" };
-  return h(
-    "header",
-    { class: "topbar" },
-    h(
-      "button",
-      {
-        class: "loc-button",
-        type: "button",
-        onclick: () => actions.openPanel("location"),
-        "aria-label": t(lang, "header.changeLocation"),
-      },
-      makeIcon(ICONS.mapPin, 18),
-      h(
-        "span",
-        { class: "loc-text" },
-        h("span", { class: "loc-name", text: state.location.name }),
-        h("span", {
-          class: "loc-coords",
-          text: `${formatNumber(lang, state.location.lat, { maximumFractionDigits: 4 })}, ${formatNumber(lang, state.location.lon, { maximumFractionDigits: 4 })}`,
-        }),
-      ),
-      h("span", { class: "loc-chevron" }, makeIcon(ICONS.chevronDown, 16)),
-    ),
-    h(
-      "div",
-      { class: "topbar-actions" },
-      h(
-        "button",
-        {
-          class: "chip-button",
-          type: "button",
-          onclick: () => actions.setLang(nextLang[state.lang]),
-          "aria-label": t(lang, "lang.title"),
-        },
-        makeIcon(ICONS.globe, 16),
-        h("span", { text: state.lang.toUpperCase() }),
-      ),
-      h(
-        "button",
-        {
-          class: "icon-button",
-          type: "button",
-          onclick: () => actions.openPanel("settings"),
-          "aria-label": t(lang, "header.settings"),
-        },
-        makeIcon(ICONS.settings, 18),
-      ),
-    ),
-  );
-}
-
-function renderTimebar(state: AppState, actions: Actions): HTMLElement {
+function renderAppBar(state: AppState, actions: Actions): HTMLElement {
   const lang = state.lang;
   const ev = state.evaluation;
-  const offset = ev ? formatUtcOffset(ev.utcOffsetMinutes) : "";
+  const open = isSheetOpen(state.sheet);
+  let summary: string;
+  if (ev) {
+    summary = t(lang, "appbar.summary", {
+      verdict: verdictLabel(lang, ev.verdict),
+      score: formatNumber(lang, ev.score),
+    });
+  } else if (state.status === "error") {
+    summary = t(lang, "status.errorTitle");
+  } else {
+    summary = t(lang, "status.loading");
+  }
   return h(
-    "section",
-    { class: "timebar" },
+    "header",
+    { class: "appbar" },
+    h(
+      "div",
+      { class: "appbar-row" },
+      open
+        ? h(
+            "button",
+            {
+              class: "appbar-back",
+              type: "button",
+              "aria-label": t(lang, "appbar.back"),
+              onclick: actions.closeSheet,
+            },
+            makeIcon(ICONS.arrowLeft, 20),
+          )
+        : null,
+      h(
+        "button",
+        {
+          class: "appbar-loc",
+          type: "button",
+          "aria-label": t(lang, "header.changeLocation"),
+          onclick: () => actions.openSheet("location"),
+        },
+        h("span", { class: "appbar-loc-name", text: state.location.name }),
+        makeIcon(ICONS.chevronDown, 14),
+      ),
+      h("span", { class: "appbar-time", text: formatDateTime(lang, state.targetHour) }),
+    ),
+    h("p", { class: "appbar-verdict", text: summary }),
+  );
+}
+
+function renderActionBar(state: AppState, actions: Actions): HTMLElement {
+  const lang = state.lang;
+  return h(
+    "nav",
+    { class: "actionbar" },
     h(
       "button",
       {
-        class: "time-button",
+        class: "btn primary actionbar-adjust",
         type: "button",
-        onclick: () => actions.openPanel("time"),
-        "aria-label": t(lang, "header.changeTime"),
+        "aria-label": t(lang, "sheet.open"),
+        onclick: () => actions.openSheet("inputs"),
       },
-      makeIcon(ICONS.calendar, 18),
-      h(
-        "span",
-        { class: "time-text" },
-        h("span", { class: "time-main", text: formatDateTime(lang, state.targetHour) }),
-        offset ? h("span", { class: "time-offset", text: offset }) : null,
-      ),
-      makeIcon(ICONS.chevronDown, 16),
+      makeIcon(ICONS.sliders, 18),
+      h("span", { text: t(lang, "appbar.adjust") }),
+    ),
+    h(
+      "button",
+      { class: "btn ghost actionbar-refresh", type: "button", onclick: actions.refresh },
+      makeIcon(state.fetching ? ICONS.loader : ICONS.refresh, 16, state.fetching ? "spin" : ""),
+      h("span", { text: t(lang, "footer.refresh") }),
     ),
   );
 }
@@ -578,48 +586,43 @@ function field(label: string, input: HTMLElement): HTMLElement {
   return h("label", { class: "field" }, h("span", { class: "field-label", text: label }), input);
 }
 
-function renderLocationSheet(state: AppState, actions: Actions): HTMLElement {
+function geoResults(state: AppState, actions: Actions): HTMLElement | null {
   const lang = state.lang;
-  const results =
-    state.geoStatus === "loading"
-      ? h("p", { class: "sheet-note", text: t(lang, "location.searching") })
-      : state.geoResults.length > 0
-        ? h(
-            "div",
-            { class: "geo-results" },
-            h("span", { class: "field-label", text: t(lang, "location.resultsTitle") }),
-            ...state.geoResults.map((r) =>
-              h(
-                "button",
-                {
-                  class: "geo-result",
-                  type: "button",
-                  onclick: () => actions.chooseGeoResult(r),
-                },
-                makeIcon(ICONS.mapPin, 16),
-                h(
-                  "span",
-                  {},
-                  h("span", { class: "geo-name", text: r.name }),
-                  h("span", {
-                    class: "geo-sub",
-                    text: [r.admin1, r.country].filter(Boolean).join(", "),
-                  }),
-                ),
-              ),
-            ),
-          )
-        : state.geoStatus === "done"
-          ? h("p", { class: "sheet-note", text: t(lang, "location.noResults") })
-          : state.geoStatus === "error"
-            ? h("p", { class: "sheet-note error-text", text: t(lang, "location.geoDenied") })
-            : null;
+  if (state.geoStatus === "loading") {
+    return h("p", { class: "sheet-note", text: t(lang, "location.searching") });
+  }
+  if (state.geoResults.length > 0) {
+    return h(
+      "div",
+      { class: "geo-results" },
+      h("span", { class: "field-label", text: t(lang, "location.resultsTitle") }),
+      ...state.geoResults.map((r) =>
+        h(
+          "button",
+          { class: "geo-result", type: "button", onclick: () => actions.chooseGeoResult(r) },
+          makeIcon(ICONS.mapPin, 16),
+          h(
+            "span",
+            {},
+            h("span", { class: "geo-name", text: r.name }),
+            h("span", { class: "geo-sub", text: [r.admin1, r.country].filter(Boolean).join(", ") }),
+          ),
+        ),
+      ),
+    );
+  }
+  if (state.geoStatus === "done") {
+    return h("p", { class: "sheet-note", text: t(lang, "location.noResults") });
+  }
+  if (state.geoStatus === "error") {
+    return h("p", { class: "sheet-note error-text", text: t(lang, "location.geoDenied") });
+  }
+  return null;
+}
 
-  return h(
-    "div",
-    { class: "sheet" },
-    h("div", { class: "sheet-handle" }),
-    h("h2", { class: "sheet-title", text: t(lang, "location.title") }),
+function renderLocationSheet(state: AppState, actions: Actions): Child[] {
+  const lang = state.lang;
+  return [
     h(
       "div",
       { class: "search-row" },
@@ -629,6 +632,7 @@ function renderLocationSheet(state: AppState, actions: Actions): HTMLElement {
         placeholder: t(lang, "location.searchPlaceholder"),
         value: state.searchQuery,
         oninput: (e: Event) => actions.setSearchQuery((e.target as HTMLInputElement).value),
+        onfocus: focusScroll,
         onkeydown: (e: KeyboardEvent) => {
           if (e.key === "Enter") actions.runSearch();
         },
@@ -640,7 +644,7 @@ function renderLocationSheet(state: AppState, actions: Actions): HTMLElement {
         h("span", { text: t(lang, "location.search") }),
       ),
     ),
-    results,
+    geoResults(state, actions),
     h("div", { class: "divider" }),
     field(
       t(lang, "location.nameLabel"),
@@ -649,6 +653,7 @@ function renderLocationSheet(state: AppState, actions: Actions): HTMLElement {
         class: "input",
         value: state.draft.name,
         oninput: (e: Event) => actions.patchDraft({ name: (e.target as HTMLInputElement).value }),
+        onfocus: focusScroll,
       }),
     ),
     h(
@@ -663,6 +668,7 @@ function renderLocationSheet(state: AppState, actions: Actions): HTMLElement {
           class: "input",
           value: String(state.draft.lat),
           oninput: (e: Event) => actions.patchDraft({ lat: Number((e.target as HTMLInputElement).value) }),
+          onfocus: focusScroll,
         }),
       ),
       field(
@@ -674,6 +680,7 @@ function renderLocationSheet(state: AppState, actions: Actions): HTMLElement {
           class: "input",
           value: String(state.draft.lon),
           oninput: (e: Event) => actions.patchDraft({ lon: Number((e.target as HTMLInputElement).value) }),
+          onfocus: focusScroll,
         }),
       ),
     ),
@@ -688,35 +695,7 @@ function renderLocationSheet(state: AppState, actions: Actions): HTMLElement {
       { class: "btn primary full", type: "button", onclick: actions.applyLocation },
       t(lang, "location.apply"),
     ),
-  );
-}
-
-function renderTimeSheet(state: AppState, actions: Actions): HTMLElement {
-  const lang = state.lang;
-  return h(
-    "div",
-    { class: "sheet" },
-    h("div", { class: "sheet-handle" }),
-    h("h2", { class: "sheet-title", text: t(lang, "time.title") }),
-    field(
-      t(lang, "time.label"),
-      h("input", {
-        type: "datetime-local",
-        class: "input",
-        step: "3600",
-        value: state.atInput,
-        oninput: (e: Event) => actions.setAtInput((e.target as HTMLInputElement).value),
-      }),
-    ),
-    h(
-      "button",
-      { class: "btn ghost full", type: "button", onclick: actions.useNextHour },
-      makeIcon(ICONS.calendar, 16),
-      h("span", { text: t(lang, "time.nextHour") }),
-    ),
-    h("p", { class: "sheet-note", text: `${t(lang, "time.local")}: Europe/Berlin` }),
-    h("button", { class: "btn primary full", type: "button", onclick: actions.applyTime }, t(lang, "time.apply")),
-  );
+  ];
 }
 
 function segmented<T extends string>(
@@ -744,26 +723,36 @@ function segmented<T extends string>(
   );
 }
 
-function renderSettingsSheet(state: AppState, actions: Actions): HTMLElement {
+function renderInputsSheet(state: AppState, actions: Actions): HTMLElement[] {
   const lang = state.lang;
-  return h(
-    "div",
-    { class: "sheet" },
-    h("div", { class: "sheet-handle" }),
-    h("h2", { class: "sheet-title", text: t(lang, "header.settings") }),
+  const bearingValue = h("span", {
+    class: "bearing-value",
+    text: `${formatNumber(lang, state.courtBearing)}°`,
+  });
+  return [
     h(
       "div",
       { class: "setting-block" },
-      h("span", { class: "field-label", text: t(lang, "lang.title") }),
-      segmented<Lang>(
-        [
-          { value: "vi", label: t(lang, "lang.vi") },
-          { value: "de", label: t(lang, "lang.de") },
-          { value: "en", label: t(lang, "lang.en") },
-        ],
-        state.lang,
-        actions.setLang,
+      h("span", { class: "field-label", text: t(lang, "time.title") }),
+      field(
+        t(lang, "time.label"),
+        h("input", {
+          type: "datetime-local",
+          class: "input",
+          step: "3600",
+          value: state.atInput,
+          oninput: (e: Event) => actions.setAtInput((e.target as HTMLInputElement).value),
+          onfocus: focusScroll,
+        }),
       ),
+      h(
+        "button",
+        { class: "btn ghost full", type: "button", onclick: actions.useNextHour },
+        makeIcon(ICONS.calendar, 16),
+        h("span", { text: t(lang, "time.nextHour") }),
+      ),
+      h("p", { class: "sheet-note", text: `${t(lang, "time.local")}: ${APP_TIMEZONE}` }),
+      h("button", { class: "btn primary full", type: "button", onclick: actions.applyTime }, t(lang, "time.apply")),
     ),
     h(
       "div",
@@ -780,9 +769,16 @@ function renderSettingsSheet(state: AppState, actions: Actions): HTMLElement {
           value: String(state.courtBearing),
           class: "range",
           "aria-label": t(lang, "court.bearing"),
-          oninput: (e: Event) => actions.setBearing(Number((e.target as HTMLInputElement).value)),
+          // Cập nhật nhãn ngay khi kéo (KHÔNG render lại DOM giữa cử chỉ),
+          // chỉ chốt state lúc nhả tay để thanh trượt không bị huỷ.
+          oninput: (e: Event) => {
+            const value = Number((e.target as HTMLInputElement).value);
+            bearingValue.textContent = `${formatNumber(lang, value)}°`;
+          },
+          onchange: (e: Event) => actions.setBearing(Number((e.target as HTMLInputElement).value)),
+          onfocus: focusScroll,
         }),
-        h("span", { class: "bearing-value", text: `${formatNumber(lang, state.courtBearing)}°` }),
+        bearingValue,
       ),
       h("p", { class: "sheet-note", text: t(lang, "court.bearingHint") }),
       h(
@@ -816,6 +812,20 @@ function renderSettingsSheet(state: AppState, actions: Actions): HTMLElement {
     h(
       "div",
       { class: "setting-block" },
+      h("span", { class: "field-label", text: t(lang, "lang.title") }),
+      segmented<Lang>(
+        [
+          { value: "vi", label: t(lang, "lang.vi") },
+          { value: "de", label: t(lang, "lang.de") },
+          { value: "en", label: t(lang, "lang.en") },
+        ],
+        state.lang,
+        actions.setLang,
+      ),
+    ),
+    h(
+      "div",
+      { class: "setting-block" },
       h("span", { class: "field-label", text: t(lang, "theme.title") }),
       segmented<AppState["theme"]>(
         [
@@ -826,6 +836,17 @@ function renderSettingsSheet(state: AppState, actions: Actions): HTMLElement {
         state.theme,
         actions.setTheme,
       ),
+    ),
+    h(
+      "button",
+      {
+        class: "btn ghost full",
+        type: "button",
+        dataset: { sheetOpener: "location" },
+        onclick: () => actions.openSheet("location"),
+      },
+      makeIcon(ICONS.mapPin, 16),
+      h("span", { text: t(lang, "header.changeLocation") }),
     ),
     h(
       "div",
@@ -839,32 +860,53 @@ function renderSettingsSheet(state: AppState, actions: Actions): HTMLElement {
         })}`,
       ),
     ),
-    h("button", { class: "btn primary full", type: "button", onclick: actions.closePanel }, t(lang, "header.settings")),
-  );
+  ];
 }
 
-function renderSheet(state: AppState, actions: Actions): HTMLElement {
-  let content: HTMLElement | null = null;
-  if (state.panel === "location") content = renderLocationSheet(state, actions);
-  else if (state.panel === "time") content = renderTimeSheet(state, actions);
-  else if (state.panel === "settings") content = renderSettingsSheet(state, actions);
+/** Panel đã render lần trước — để keyframes chỉ chạy khi sheet THẬT SỰ mở. */
+let lastSheetPanel: SheetPanel = "none";
+
+function renderSheet(state: AppState, actions: Actions): HTMLElement | null {
+  const lang = state.lang;
+  const panel = state.sheet.panel;
+  const entering = panel !== "none" && panel !== lastSheetPanel;
+  lastSheetPanel = panel;
+  if (panel === "none") return null;
+  const isLocation = panel === "location";
+  const body = isLocation ? renderLocationSheet(state, actions) : renderInputsSheet(state, actions);
   return h(
     "div",
     {
       class: "sheet-backdrop",
       onclick: (e: MouseEvent) => {
-        if (e.target === e.currentTarget) actions.closePanel();
+        if (e.target === e.currentTarget) actions.closeSheet();
       },
     },
     h(
       "div",
-      { class: "sheet-wrap", role: "dialog", "aria-modal": "true" },
+      {
+        class: `sheet-wrap${entering ? " sheet-enter" : ""}`,
+        role: "dialog",
+        "aria-modal": "true",
+        "aria-labelledby": "sheet-title",
+      },
+      h(
+        "div",
+        { class: "sheet-grab", role: "separator", "aria-label": t(lang, "sheet.grabber") },
+        h("div", { class: "sheet-handle", "aria-hidden": "true" }),
+        h("span", { class: "sheet-drag-hint", text: t(lang, "sheet.dragHint") }),
+      ),
       h(
         "button",
-        { class: "sheet-close", type: "button", "aria-label": t(state.lang, "common.close"), onclick: actions.closePanel },
+        { class: "sheet-close", type: "button", "aria-label": t(lang, "common.close"), onclick: actions.closeSheet },
         makeIcon(ICONS.close, 18),
       ),
-      content,
+      h(
+        "div",
+        { class: "sheet" },
+        h("h2", { class: "sheet-title", id: "sheet-title", text: isLocation ? t(lang, "location.title") : t(lang, "sheet.title") }),
+        ...body,
+      ),
     ),
   );
 }
@@ -876,23 +918,24 @@ export function renderApp(root: HTMLElement, state: AppState, actions: Actions):
   const main = h(
     "main",
     { class: "main" },
-    renderTimebar(state, actions),
     renderUpdateBanner(state, actions),
     renderBanner(state),
     ev ? renderHero(state) : renderStatus(state, actions),
     ev ? renderFactors(state) : null,
-    ev ? renderRaw(state) : null,
+    ev ? renderRaw(state, actions) : null,
     ev ? renderAssumptions(state) : null,
   );
 
   const app = h(
     "div",
     { class: "app", dataset: { lang: state.lang } },
-    renderHeader(state, actions),
+    renderAppBar(state, actions),
     main,
-    renderFooter(state, actions),
+    renderFooter(state),
+    renderActionBar(state, actions),
   );
 
   root.appendChild(app);
-  if (state.panel !== "none") root.appendChild(renderSheet(state, actions));
+  const sheet = renderSheet(state, actions);
+  if (sheet) root.appendChild(sheet);
 }

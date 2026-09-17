@@ -6,6 +6,15 @@ export const de: Dict = {
   "app.loading": "Wird geladen…",
   "common.close": "Schließen",
 
+  "appbar.back": "Zurück",
+  "appbar.adjust": "Anpassen",
+  "appbar.summary": "{verdict} · {score}/100",
+
+  "sheet.title": "Anpassen",
+  "sheet.open": "Einstellungsbereich öffnen",
+  "sheet.dragHint": "Zum Schließen nach unten ziehen",
+  "sheet.grabber": "Zum Schließen am Griff ziehen",
+
   "header.changeLocation": "Ort ändern",
   "header.changeTime": "Zeit ändern",
   "header.settings": "Einstellungen",
@@ -130,6 +139,9 @@ export const de: Dict = {
   "ideal.none": "Nicht zutreffend",
   "ideal.day": "Tagsüber",
 
+  "panel.showRaw": "Rohbedingungen und Originaldaten anzeigen",
+  "panel.hideRaw": "Rohbedingungen einklappen",
+
   "raw.title": "Rohdaten",
   "raw.subtitle": "API-Werte zur gewählten Stunde.",
   "raw.temperature": "Temperatur",
@@ -196,6 +208,12 @@ export const de: Dict = {
   "confidence.low": "Niedrig",
   "status.noTargetHour": "Die API liefert keine Daten für {time}.",
   "status.noData": "Keine Daten zum Anzeigen.",
+  "status.loadingHost": "Daten werden von {host} geladen…",
+  "status.errorNetworkHost": "Keine Verbindung zu {host} — Netzwerkfehler.",
+  "status.errorHttpHost": "{host} meldet HTTP-Fehler {status}.",
+  "status.errorParseHost": "Daten von {host} konnten nicht gelesen werden (ungültiges JSON).",
+  "status.errorUnknownHost": "Unbekannter Fehler beim Aufruf von {host}.",
+  "status.noTargetHourHost": "Die API {host} liefert keine Daten für {time}.",
 
   "footer.source": "Datenquelle",
   "footer.fetched": "Abgerufen",
