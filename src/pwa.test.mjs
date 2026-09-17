@@ -240,9 +240,13 @@ describe("PWA artifacts", () => {
       .join("\n");
   }
 
-  it("18. dist/sw.js bỏ qua Vary khi tra cache (ignoreVary trong caches.match)", () => {
+  it("18. dist/sw.js bỏ qua Vary khi tra cache (MỌI caches.match đều có ignoreVary)", () => {
     const code = stripLineComments(readText("dist", "sw.js"));
-    expect(/caches\.match\([^;)]*ignoreVary:\s*true/.test(code)).toBe(true);
+    const calls = code.match(/caches\.match\(/g) ?? [];
+    const withOption = code.match(/caches\.match\([^;)]*ignoreVary:\s*true/g) ?? [];
+    expect(calls.length).toBeGreaterThan(0);
+    // Không chỉ "có ít nhất một": MỌI điểm tra cache phải bỏ qua Vary, kể cả fallback ./index.html.
+    expect(withOption.length).toBe(calls.length);
   });
 
   it("19. dist/sw.js bỏ header Vary trước khi ghi cache", () => {
