@@ -229,4 +229,14 @@ describe("PWA artifacts", () => {
       }
     }
   });
+
+  it("18. dist/sw.js bỏ qua Vary khi tra cache (ignoreVary)", () => {
+    const sw = readText("dist", "sw.js");
+    expect(sw).toContain("ignoreVary");
+  });
+
+  it("19. dist/sw.js bỏ header Vary trước khi ghi cache", () => {
+    const sw = readText("dist", "sw.js");
+    expect(/headers\.delete\(\s*["']vary["']\s*\)/i.test(sw)).toBe(true);
+  });
 });

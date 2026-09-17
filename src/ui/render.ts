@@ -827,7 +827,6 @@ function renderSettingsSheet(state: AppState, actions: Actions): HTMLElement {
         actions.setTheme,
       ),
     ),
-    h("button", { class: "btn primary full", type: "button", onclick: actions.closePanel }, t(lang, "header.settings")),
     h(
       "div",
       { class: "setting-block" },
