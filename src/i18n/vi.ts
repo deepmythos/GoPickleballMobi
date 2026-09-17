@@ -4,6 +4,15 @@ export const vi = {
   "app.loading": "Đang tải…",
   "common.close": "Đóng",
 
+  "appbar.back": "Quay lại",
+  "appbar.adjust": "Điều chỉnh",
+  "appbar.summary": "{verdict} · {score}/100",
+
+  "sheet.title": "Điều chỉnh",
+  "sheet.open": "Mở bảng điều chỉnh",
+  "sheet.dragHint": "Kéo xuống để đóng",
+  "sheet.grabber": "Nắm kéo để đóng",
+
   "header.changeLocation": "Đổi địa điểm",
   "header.changeTime": "Đổi ngày giờ",
   "header.settings": "Cài đặt",
@@ -128,6 +137,9 @@ export const vi = {
   "ideal.none": "Không áp dụng",
   "ideal.day": "Ban ngày",
 
+  "panel.showRaw": "Xem điều kiện thô và dữ liệu gốc",
+  "panel.hideRaw": "Thu gọn điều kiện thô",
+
   "raw.title": "Điều kiện thô",
   "raw.subtitle": "Giá trị API tại giờ đã chọn.",
   "raw.temperature": "Nhiệt độ",
@@ -194,6 +206,12 @@ export const vi = {
   "confidence.low": "Thấp",
   "status.noTargetHour": "API không trả dữ liệu cho giờ {time}.",
   "status.noData": "Không có dữ liệu để hiển thị.",
+  "status.loadingHost": "Đang tải dữ liệu từ {host}…",
+  "status.errorNetworkHost": "Không kết nối được tới {host} — lỗi mạng.",
+  "status.errorHttpHost": "{host} trả lỗi HTTP {status}.",
+  "status.errorParseHost": "Dữ liệu từ {host} không đọc được (JSON không hợp lệ).",
+  "status.errorUnknownHost": "Lỗi không xác định khi gọi {host}.",
+  "status.noTargetHourHost": "API {host} không trả dữ liệu cho giờ {time}.",
 
   "footer.source": "Nguồn dữ liệu",
   "footer.fetched": "Lấy lúc",

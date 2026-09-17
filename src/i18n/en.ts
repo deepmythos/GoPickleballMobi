@@ -6,6 +6,15 @@ export const en: Dict = {
   "app.loading": "Loading…",
   "common.close": "Close",
 
+  "appbar.back": "Back",
+  "appbar.adjust": "Adjust",
+  "appbar.summary": "{verdict} · {score}/100",
+
+  "sheet.title": "Adjust",
+  "sheet.open": "Open adjustment panel",
+  "sheet.dragHint": "Drag down to close",
+  "sheet.grabber": "Drag the handle to close",
+
   "header.changeLocation": "Change location",
   "header.changeTime": "Change date and time",
   "header.settings": "Settings",
@@ -130,6 +139,9 @@ export const en: Dict = {
   "ideal.none": "Not applicable",
   "ideal.day": "Daytime",
 
+  "panel.showRaw": "Show raw conditions and source data",
+  "panel.hideRaw": "Collapse raw conditions",
+
   "raw.title": "Raw conditions",
   "raw.subtitle": "API values for the selected hour.",
   "raw.temperature": "Temperature",
@@ -196,6 +208,12 @@ export const en: Dict = {
   "confidence.low": "Low",
   "status.noTargetHour": "The API returned no data for {time}.",
   "status.noData": "No data to show.",
+  "status.loadingHost": "Loading data from {host}…",
+  "status.errorNetworkHost": "Could not connect to {host} — network error.",
+  "status.errorHttpHost": "{host} returned HTTP error {status}.",
+  "status.errorParseHost": "Data from {host} could not be read (invalid JSON).",
+  "status.errorUnknownHost": "Unknown error while calling {host}.",
+  "status.noTargetHourHost": "The API {host} returned no data for {time}.",
 
   "footer.source": "Data source",
   "footer.fetched": "Fetched",
