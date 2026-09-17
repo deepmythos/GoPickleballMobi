@@ -230,9 +230,19 @@ describe("PWA artifacts", () => {
     }
   });
 
-  it("18. dist/sw.js bỏ qua Vary khi tra cache (ignoreVary)", () => {
-    const sw = readText("dist", "sw.js");
-    expect(sw).toContain("ignoreVary");
+  // Khẳng định này phải bám vào CODE, không phải vào chú thích: bản cũ chỉ
+  // `expect(sw).toContain("ignoreVary")` nên VẪN PASS khi tuỳ chọn thật bị xoá,
+  // vì các dòng comment trong sw.js vẫn còn chữ "ignoreVary". Bỏ comment trước khi khớp.
+  function stripLineComments(text) {
+    return text
+      .split("\n")
+      .filter((line) => !/^\s*\/\//.test(line))
+      .join("\n");
+  }
+
+  it("18. dist/sw.js bỏ qua Vary khi tra cache (ignoreVary trong caches.match)", () => {
+    const code = stripLineComments(readText("dist", "sw.js"));
+    expect(/caches\.match\([^;)]*ignoreVary:\s*true/.test(code)).toBe(true);
   });
 
   it("19. dist/sw.js bỏ header Vary trước khi ghi cache", () => {
