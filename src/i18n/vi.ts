@@ -3,6 +3,7 @@ export const vi = {
   "app.subtitle": "Có nên ra sân lúc này không?",
   "app.loading": "Đang tải…",
   "common.close": "Đóng",
+  "common.none": "—",
 
   "appbar.back": "Quay lại",
   "appbar.adjust": "Điều chỉnh",
@@ -244,6 +245,8 @@ export const vi = {
   "unit.eaqi": "EAQI",
   "unit.hpa": "hPa",
   "unit.wm2": "W/m²",
+  "unit.km": "km",
+  "unit.ugm3": "µg/m³",
 } as const;
 
 export type Dict = Record<keyof typeof vi, string>;

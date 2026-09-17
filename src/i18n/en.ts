@@ -5,6 +5,7 @@ export const en: Dict = {
   "app.subtitle": "Should you head to the court now?",
   "app.loading": "Loading…",
   "common.close": "Close",
+  "common.none": "—",
 
   "appbar.back": "Back",
   "appbar.adjust": "Adjust",
@@ -246,4 +247,6 @@ export const en: Dict = {
   "unit.eaqi": "EAQI",
   "unit.hpa": "hPa",
   "unit.wm2": "W/m²",
+  "unit.km": "km",
+  "unit.ugm3": "µg/m³",
 };

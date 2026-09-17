@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   createSwipeLatch,
   decideSwipeBack,
+  isExcludedTouchTarget,
   isHorizontalDominant,
   SWIPE_BACK_MIN_PX,
   type SwipeSample,
@@ -98,5 +99,41 @@ describe("createSwipeLatch", () => {
     expect([latch.decide(weak), latch.decide(weak)]).toEqual(["none", "none"]);
     latch.reset();
     expect(latch.decide(sample({ startX: 10, endX: 200 }))).toBe("back");
+  });
+});
+
+describe("isExcludedTouchTarget", () => {
+  it("excludes a segmented button (child .segment inside .segmented)", () => {
+    expect(
+      isExcludedTouchTarget({
+        tagName: "BUTTON",
+        role: "radio",
+        classNames: ["segment", "active", "segmented", "setting-block", "sheet-body", "app"],
+      }),
+    ).toBe(true);
+  });
+
+  it("excludes the segmented row itself", () => {
+    expect(
+      isExcludedTouchTarget({ tagName: "DIV", role: "radiogroup", classNames: ["segmented"] }),
+    ).toBe(true);
+  });
+
+  it("excludes inputs, textareas, selects and sliders", () => {
+    expect(isExcludedTouchTarget({ tagName: "INPUT", role: null, classNames: ["range"] })).toBe(true);
+    expect(isExcludedTouchTarget({ tagName: "input", role: "slider", classNames: [] })).toBe(true);
+    expect(isExcludedTouchTarget({ tagName: "TEXTAREA", role: null, classNames: [] })).toBe(true);
+    expect(isExcludedTouchTarget({ tagName: "SELECT", role: null, classNames: [] })).toBe(true);
+  });
+
+  it("does not exclude the sheet body or the app bar", () => {
+    expect(
+      isExcludedTouchTarget({ tagName: "DIV", role: null, classNames: ["sheet", "sheet-wrap", "app"] }),
+    ).toBe(false);
+    expect(isExcludedTouchTarget({ tagName: "HEADER", role: null, classNames: ["appbar"] })).toBe(false);
+  });
+
+  it("matches the tag name regardless of case", () => {
+    expect(isExcludedTouchTarget({ tagName: "InPuT", role: null, classNames: [] })).toBe(true);
   });
 });

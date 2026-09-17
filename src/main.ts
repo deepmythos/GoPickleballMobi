@@ -23,7 +23,7 @@ import { isLang, t } from "./i18n";
 import { APP_TIMEZONE, ceilToHour, formatLocalISO } from "./time";
 import type { BaseUrls, GeoLocation, Lang } from "./types";
 import { hostOf, renderApp } from "./ui/render";
-import { createSwipeLatch, isHorizontalDominant, type SwipeSample } from "./ui/gesture";
+import { createSwipeLatch, isExcludedTouchTarget, isHorizontalDominant, type SwipeSample, type TouchTargetTraits } from "./ui/gesture";
 import { initialSheetState, isSheetOpen, sheetReducer, type SheetAction } from "./ui/sheet";
 import type { Actions, AppState, ThemeChoice } from "./ui/state";
 
@@ -555,8 +555,19 @@ function start(): void {
     return false;
   }
 
+  /** Đặc điểm của phần tử bắt đầu cử chỉ — trích từ DOM, quyết định nằm ở gesture.ts. */
+  function touchTargetTraits(el: Element): TouchTargetTraits {
+    const classNames: string[] = [];
+    let node: Element | null = el;
+    while (node && node !== document.body) {
+      classNames.push(...Array.from(node.classList));
+      node = node.parentElement;
+    }
+    return { tagName: el.tagName, role: el.getAttribute("role"), classNames };
+  }
+
   function isExcludedTarget(el: Element): boolean {
-    if (el.matches("input, textarea, select, [role='slider'], .range, .segmented")) return true;
+    if (isExcludedTouchTarget(touchTargetTraits(el))) return true;
     return isHorizontalScroller(el);
   }
 
