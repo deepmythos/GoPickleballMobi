@@ -86,6 +86,7 @@ export const en: Dict = {
   "reason.gate.gust": "Storm-force gusts → not safe to play.",
   "reason.gate.heat": "Extreme heat → not safe to play.",
   "reason.gate.cold": "Extreme cold → not safe to play.",
+  "reason.gate.wet": "Too much rain in the last 24 hours, court still wet → treated as not playable.",
 
   "factor.rain_current": "Current rain",
   "factor.rain_probability": "Rain probability",

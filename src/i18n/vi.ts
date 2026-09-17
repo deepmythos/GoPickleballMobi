@@ -84,6 +84,7 @@ export const vi = {
   "reason.gate.gust": "Gió giật bão cấp → không an toàn để chơi.",
   "reason.gate.heat": "Nắng nóng cực đoan → không an toàn để chơi.",
   "reason.gate.cold": "Rét đậm cực đoan → không an toàn để chơi.",
+  "reason.gate.wet": "Mưa 24 giờ qua quá nhiều, sân còn ướt → coi như không chơi được.",
 
   "factor.rain_current": "Mưa hiện tại",
   "factor.rain_probability": "Xác suất mưa",
