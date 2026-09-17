@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   createSwipeLatch,
   decideSwipeBack,
+  isHorizontalDominant,
   SWIPE_BACK_MIN_PX,
   type SwipeSample,
 } from "./gesture";
@@ -61,6 +62,24 @@ describe("decideSwipeBack", () => {
   it("returns none above the duration limit and back at the boundary", () => {
     expect(decideSwipeBack(sample({ startX: 10, endX: 200, durationMs: 901 }))).toBe("none");
     expect(decideSwipeBack(sample({ startX: 10, endX: 200, durationMs: 900 }))).toBe("back");
+  });
+});
+
+describe("isHorizontalDominant", () => {
+  it("is false at an exact diagonal tie", () => {
+    expect(isHorizontalDominant(64, 64)).toBe(false);
+  });
+
+  it("is true once horizontal exceeds vertical", () => {
+    expect(isHorizontalDominant(65, 64)).toBe(true);
+  });
+
+  it("is false for a still touch", () => {
+    expect(isHorizontalDominant(0, 0)).toBe(false);
+  });
+
+  it("is true for a leftward edge swipe with small vertical drift", () => {
+    expect(isHorizontalDominant(-130, 5)).toBe(true);
   });
 });
 

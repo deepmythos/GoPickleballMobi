@@ -23,7 +23,7 @@ import { isLang, t } from "./i18n";
 import { APP_TIMEZONE, ceilToHour, formatLocalISO } from "./time";
 import type { BaseUrls, GeoLocation, Lang } from "./types";
 import { hostOf, renderApp } from "./ui/render";
-import { createSwipeLatch, type SwipeSample } from "./ui/gesture";
+import { createSwipeLatch, isHorizontalDominant, type SwipeSample } from "./ui/gesture";
 import { initialSheetState, isSheetOpen, sheetReducer, type SheetAction } from "./ui/sheet";
 import type { Actions, AppState, ThemeChoice } from "./ui/state";
 
@@ -608,23 +608,31 @@ function start(): void {
     const ts = touchState;
     touchState = null;
     if (!ts) return;
+    const touch = e.changedTouches[0];
+    if (touch) {
+      const dx = touch.clientX - ts.startX;
+      const dyDoc = touch.clientY - ts.startY;
+      // Hướng chủ đạo quyết định: ngang = swipe-back, dọc = kéo sheet.
+      // Không phụ thuộc điểm chạm có nằm trong .sheet-wrap hay không.
+      if (isHorizontalDominant(dx, dyDoc)) {
+        const sample: SwipeSample = {
+          startX: ts.startX,
+          startY: ts.startY,
+          endX: touch.clientX,
+          endY: touch.clientY,
+          durationMs: Date.now() - ts.startTime,
+          startedInHorizontalScroller: ts.excluded,
+        };
+        const outcome = swipeLatch.decide(sample);
+        if (outcome === "back" && isSheetOpen(state.sheet)) {
+          actions.closeSheet();
+        }
+        return;
+      }
+    }
     if (ts.dragging) {
       finishDrag(ts.dy);
       return;
-    }
-    const touch = e.changedTouches[0];
-    if (!touch) return;
-    const sample: SwipeSample = {
-      startX: ts.startX,
-      startY: ts.startY,
-      endX: touch.clientX,
-      endY: touch.clientY,
-      durationMs: Date.now() - ts.startTime,
-      startedInHorizontalScroller: ts.excluded,
-    };
-    const outcome = swipeLatch.decide(sample);
-    if (outcome === "back" && isSheetOpen(state.sheet)) {
-      actions.closeSheet();
     }
   }
 

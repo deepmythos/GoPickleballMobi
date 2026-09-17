@@ -22,6 +22,14 @@ export interface SwipeSample {
 
 export type SwipeOutcome = "back" | "none";
 
+/**
+ * true khi cử chỉ nghiêng ngang hơn dọc (so theo trị tuyệt đối).
+ * Dùng để phân biệt vuốt lùi (swipe-back) với kéo xuống đóng sheet.
+ */
+export function isHorizontalDominant(dx: number, dy: number): boolean {
+  return Math.abs(dx) > Math.abs(dy);
+}
+
 /** Trả "back" chỉ khi mẫu thoả mọi điều kiện; ngược lại "none". Biên tính là hợp lệ. */
 export function decideSwipeBack(sample: SwipeSample): SwipeOutcome {
   const { startX, startY, endX, endY, durationMs, startedInHorizontalScroller } = sample;
