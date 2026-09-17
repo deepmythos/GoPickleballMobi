@@ -22,7 +22,9 @@ import { applyUpdate, initPwa } from "./pwa";
 import { isLang, t } from "./i18n";
 import { APP_TIMEZONE, ceilToHour, formatLocalISO } from "./time";
 import type { BaseUrls, GeoLocation, Lang } from "./types";
-import { renderApp } from "./ui/render";
+import { hostOf, renderApp } from "./ui/render";
+import { createSwipeLatch, type SwipeSample } from "./ui/gesture";
+import { initialSheetState, isSheetOpen, sheetReducer, type SheetAction } from "./ui/sheet";
 import type { Actions, AppState, ThemeChoice } from "./ui/state";
 
 const DEFAULT_LOCATION: GeoLocation = {
@@ -134,7 +136,8 @@ function initialiseState(params: URLSearchParams): AppState {
     air: null,
     fetchedAt: null,
     fetching: false,
-    panel: "none",
+    sheet: initialSheetState,
+    rawOpen: false,
     geoStatus: "idle",
     geoResults: [],
     searchQuery: "",
@@ -149,13 +152,15 @@ function initialiseState(params: URLSearchParams): AppState {
 function start(): void {
   const params = new URLSearchParams(window.location.search);
   const state = initialiseState(params);
-  const root = document.getElementById("app");
-  if (!root) throw new Error("Missing #app root");
+  const rootEl = document.getElementById("app");
+  if (!rootEl) throw new Error("Missing #app root");
+  const root: HTMLElement = rootEl;
 
   document.documentElement.lang = state.lang;
   window.__build = { id: BUILD_ID, time: BUILD_TIME };
 
-  const render = (): void => renderApp(root, state, actions);
+  let sheetEntryPushed = false;
+  let pendingFocus: "sheet" | "opener" | null = null;
 
   function persist(): void {
     savePreferences({
@@ -178,19 +183,29 @@ function start(): void {
     next.set("forecastBase", state.baseUrls.forecastBase);
     next.set("airQualityBase", state.baseUrls.airQualityBase);
     next.set("geocodingBase", state.baseUrls.geocodingBase);
-    window.history.replaceState(null, "", `${window.location.pathname}?${next.toString()}`);
+    // Giữ nguyên state hiện tại (vd { gpmSheet }) để không phá cơ chế lịch sử của sheet.
+    window.history.replaceState(window.history.state, "", `${window.location.pathname}?${next.toString()}`);
   }
 
-  function errorMessage(err: unknown): string {
+  function errorMessage(err: unknown, host: string): string {
     if (err instanceof NoTargetHourError) {
-      return t(state.lang, "status.noTargetHour", { time: state.targetHour });
+      return t(state.lang, "status.noTargetHourHost", { host, time: state.targetHour });
     }
     if (err instanceof ApiError) {
-      if (err.kind === "network") return t(state.lang, "error.network");
-      if (err.kind === "http") return t(state.lang, "error.http");
-      return t(state.lang, "error.parse");
+      if (err.kind === "network") return t(state.lang, "status.errorNetworkHost", { host });
+      if (err.kind === "http") {
+        if (typeof err.status === "number") {
+          return t(state.lang, "status.errorHttpHost", { host, status: err.status });
+        }
+        return t(state.lang, "status.errorUnknownHost", { host });
+      }
+      return t(state.lang, "status.errorParseHost", { host });
     }
-    return t(state.lang, "error.unknown");
+    return t(state.lang, "status.errorUnknownHost", { host });
+  }
+
+  function forecastHost(): string {
+    return hostOf(state.baseUrls.forecastBase);
   }
 
   function publishVerdict(): void {
@@ -266,7 +281,7 @@ function start(): void {
     } catch (err) {
       state.evaluation = null;
       state.status = "error";
-      const message = errorMessage(err);
+      const message = errorMessage(err, forecastHost());
       state.error = message;
       publishError(message);
     }
@@ -288,7 +303,7 @@ function start(): void {
         state.air = cached.air;
         state.fetchedAt = cached.fetchedAt;
         state.stale = true;
-        state.error = errorMessage(err);
+        state.error = errorMessage(err, forecastHost());
         recompute();
         state.status = state.evaluation ? "ready" : "error";
         state.fetching = false;
@@ -299,7 +314,7 @@ function start(): void {
       state.air = null;
       state.stale = false;
       state.status = "error";
-      const message = errorMessage(err);
+      const message = errorMessage(err, forecastHost());
       state.error = message;
       publishError(message);
       state.fetching = false;
@@ -332,21 +347,50 @@ function start(): void {
     render();
   }
 
+  // ------------------------------------------------------------ sheet driver
+
+  /**
+   * Đường DUY NHẤT điều khiển sheet: nạp action qua sheetReducer, đồng bộ cờ
+   * lịch sử (push khi mở, back đúng MỘT lần khi đóng), rồi render.
+   */
+  function runSheetActions(...sheetActions: SheetAction[]): void {
+    const wasOpen = isSheetOpen(state.sheet);
+    for (const action of sheetActions) {
+      state.sheet = sheetReducer(state.sheet, action);
+    }
+    const nowOpen = isSheetOpen(state.sheet);
+    if (!wasOpen && nowOpen) {
+      sheetEntryPushed = true;
+      window.history.pushState({ gpmSheet: state.sheet.panel }, "", window.location.href);
+      pendingFocus = "sheet";
+    } else if (wasOpen && !nowOpen) {
+      pendingFocus = "opener";
+      if (sheetEntryPushed) {
+        sheetEntryPushed = false;
+        window.history.back();
+      }
+    }
+    render();
+  }
+
   const actions: Actions = {
-    openPanel(panel) {
-      state.panel = panel;
+    openSheet(panel) {
       if (panel === "location") {
         state.draft = { ...state.location };
         state.searchQuery = "";
         state.geoResults = [];
         state.geoStatus = "idle";
-      } else if (panel === "time") {
+      } else {
         state.atInput = state.targetHour;
       }
-      render();
+      runSheetActions({ type: "open", panel });
     },
-    closePanel() {
-      state.panel = "none";
+    closeSheet() {
+      if (!isSheetOpen(state.sheet)) return;
+      runSheetActions({ type: "close" });
+    },
+    toggleRaw() {
+      state.rawOpen = !state.rawOpen;
       render();
     },
     setLang(lang) {
@@ -417,9 +461,9 @@ function start(): void {
         lon,
         name: name.trim() || `${lat.toFixed(4)}, ${lon.toFixed(4)}`,
       };
-      state.panel = "none";
       persist();
       updateUrl();
+      runSheetActions({ type: "close" });
       void loadData();
     },
     locateMe() {
@@ -455,10 +499,9 @@ function start(): void {
       if (!match) return;
       state.targetHour = `${state.atInput.slice(0, 13)}:00`;
       state.atInput = state.targetHour;
-      state.panel = "none";
       updateUrl();
       recompute();
-      render();
+      runSheetActions({ type: "close" });
     },
     useNextHour() {
       state.atInput = ceilToHour(state.nowLocal);
@@ -474,6 +517,162 @@ function start(): void {
     },
   };
 
+  // --------------------------------------------------------- gesture driver
+
+  let gestureAttached = false;
+  let touchState: {
+    startX: number;
+    startY: number;
+    startTime: number;
+    dy: number;
+    dragging: boolean;
+    excluded: boolean;
+  } | null = null;
+  const swipeLatch = createSwipeLatch();
+
+  function isHorizontalScroller(el: Element): boolean {
+    let node: Element | null = el;
+    while (node && node !== document.body) {
+      const overflowX = getComputedStyle(node).overflowX;
+      if (
+        (overflowX === "auto" || overflowX === "scroll") &&
+        node.scrollWidth > node.clientWidth + 1
+      ) {
+        return true;
+      }
+      node = node.parentElement;
+    }
+    return false;
+  }
+
+  function isExcludedTarget(el: Element): boolean {
+    if (el.matches("input, textarea, select, [role='slider'], .range, .segmented")) return true;
+    return isHorizontalScroller(el);
+  }
+
+  function onTouchStart(e: TouchEvent): void {
+    if (e.touches.length !== 1) {
+      touchState = null;
+      return;
+    }
+    const touch = e.touches[0];
+    const target = e.target instanceof Element ? e.target : null;
+    const excluded = target ? isExcludedTarget(target) : false;
+    const inSheet = target ? target.closest(".sheet-wrap") !== null : false;
+    touchState = {
+      startX: touch.clientX,
+      startY: touch.clientY,
+      startTime: Date.now(),
+      dy: 0,
+      dragging: inSheet && !excluded,
+      excluded,
+    };
+    swipeLatch.reset();
+  }
+
+  function onTouchMove(e: TouchEvent): void {
+    if (!touchState || !touchState.dragging || e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    const dx = touch.clientX - touchState.startX;
+    const dy = touch.clientY - touchState.startY;
+    if (Math.abs(dy) > Math.abs(dx) && dy > 0) {
+      e.preventDefault();
+      touchState.dy = dy;
+      const wrap = root.querySelector<HTMLElement>(".sheet-wrap");
+      const backdrop = root.querySelector<HTMLElement>(".sheet-backdrop");
+      if (wrap) wrap.style.transform = `translateY(${dy}px)`;
+      if (backdrop) backdrop.style.opacity = String(Math.max(0, 1 - dy / 320));
+    }
+  }
+
+  /** Nạp kết quả kéo tay vào state machine rồi render đúng MỘT lần. */
+  function finishDrag(dy: number): void {
+    runSheetActions(
+      { type: "dragStart" },
+      { type: "dragMove", offsetPx: dy },
+      { type: "dragEnd" },
+    );
+  }
+
+  function onTouchEnd(e: TouchEvent): void {
+    const ts = touchState;
+    touchState = null;
+    if (!ts) return;
+    if (ts.dragging) {
+      finishDrag(ts.dy);
+      return;
+    }
+    const touch = e.changedTouches[0];
+    if (!touch) return;
+    const sample: SwipeSample = {
+      startX: ts.startX,
+      startY: ts.startY,
+      endX: touch.clientX,
+      endY: touch.clientY,
+      durationMs: Date.now() - ts.startTime,
+      startedInHorizontalScroller: ts.excluded,
+    };
+    const outcome = swipeLatch.decide(sample);
+    if (outcome === "back" && isSheetOpen(state.sheet)) {
+      actions.closeSheet();
+    }
+  }
+
+  function onTouchCancel(): void {
+    const ts = touchState;
+    touchState = null;
+    if (ts && ts.dragging) finishDrag(0);
+  }
+
+  function attachGestures(): void {
+    document.addEventListener("touchstart", onTouchStart, { passive: true });
+    document.addEventListener("touchmove", onTouchMove, { passive: false });
+    document.addEventListener("touchend", onTouchEnd);
+    document.addEventListener("touchcancel", onTouchCancel);
+  }
+
+  function detachGestures(): void {
+    document.removeEventListener("touchstart", onTouchStart);
+    document.removeEventListener("touchmove", onTouchMove);
+    document.removeEventListener("touchend", onTouchEnd);
+    document.removeEventListener("touchcancel", onTouchCancel);
+  }
+
+  function syncGestureDriver(): void {
+    const open = isSheetOpen(state.sheet);
+    if (open && !gestureAttached) {
+      attachGestures();
+      gestureAttached = true;
+    } else if (!open && gestureAttached) {
+      detachGestures();
+      gestureAttached = false;
+    }
+  }
+
+  // ------------------------------------------------------------------ render
+
+  function render(): void {
+    const prevPanel = document.documentElement.dataset.sheet;
+    const prevSheet = root.querySelector<HTMLElement>(".sheet");
+    const prevScroll = prevSheet ? prevSheet.scrollTop : 0;
+    renderApp(root, state, actions);
+    document.documentElement.dataset.sheet = state.sheet.panel;
+    // Giữ vị trí cuộn của sheet khi render lại cùng một panel.
+    if (prevPanel === state.sheet.panel && prevScroll > 0) {
+      const nextSheet = root.querySelector<HTMLElement>(".sheet");
+      if (nextSheet) nextSheet.scrollTop = prevScroll;
+    }
+    syncGestureDriver();
+    if (pendingFocus) {
+      const which = pendingFocus;
+      pendingFocus = null;
+      requestAnimationFrame(() => {
+        const selector = which === "sheet" ? ".sheet-close" : ".actionbar-adjust";
+        root.querySelector<HTMLElement>(selector)?.focus();
+      });
+    }
+  }
+
   initPwa({
     onUpdateAvailable: () => {
       state.update = { available: true, dismissed: false };
@@ -488,6 +687,16 @@ function start(): void {
   window.addEventListener("online", () => {
     state.offline = false;
     render();
+  });
+
+  window.addEventListener("popstate", () => {
+    if (isSheetOpen(state.sheet)) {
+      // Lịch sử đã bị trình duyệt pop; đóng đúng một cấp, không gọi back lần nữa.
+      sheetEntryPushed = false;
+      state.sheet = sheetReducer(state.sheet, { type: "close" });
+      pendingFocus = "opener";
+      render();
+    }
   });
 
   render();
