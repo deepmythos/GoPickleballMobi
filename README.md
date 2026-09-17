@@ -39,6 +39,21 @@ Script `scripts/gen-icons.mjs` đọc `public/icons/icon.svg` và `public/icons/
 với supersampling 4×4 rồi ghi PNG thật: `public/icons/icon-192.png`, `public/icons/icon-512.png`,
 `public/icons/icon-maskable-512.png` và `public/apple-touch-icon.png`. Chạy nhiều lần cho kết quả byte y hệt.
 
+## Build marker
+
+Mỗi bản build mang một marker nhận diện chính bản đang được phục vụ:
+
+- `id` = `git rev-parse --short=12 HEAD`, cộng hậu tố `-dirty` **chỉ khi** có thay đổi chưa commit
+  trên **file đã được theo dõi** (`git status --porcelain --untracked-files=no`). File không được
+  theo dõi (`.vercel/`, cache, rác của container CI) **không** tính là bẩn: bản deploy sạch không
+  được tự nhận là `-dirty` chỉ vì container có thêm file lạ.
+- Hệ quả cần biết: file nguồn **mới** nhưng chưa `git add` cũng KHÔNG làm marker thành `-dirty`
+  (dù nó có thể đã vào bundle). Marker chỉ nói về trạng thái của các file **đã được theo dõi**,
+  nên hãy commit file mới trước khi build/deploy.
+- Không có git (hoặc git lỗi) → marker là `dev`.
+- Marker xuất hiện ở `dist/build.json`, `window.__build`, dòng build trong sheet cài đặt, và trong
+  tên cache của service worker (`pickleball-go-nogo-shell-<id>`), nên mỗi bản mới có cache mới.
+
 ## Kiến trúc
 
 ```
