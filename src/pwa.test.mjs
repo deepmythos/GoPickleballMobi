@@ -256,4 +256,23 @@ describe("PWA artifacts", () => {
     const sw = readText("dist", "sw.js");
     expect(/headers\.delete\(\s*["']vary["']\s*\)/i.test(sw)).toBe(true);
   });
+
+  it("20. src/styles.css: MỌI vùng chạm tương tác khai báo ≥ 44px", () => {
+    const css = readText("src", "styles.css");
+    const blocks = css.match(/[^{}]+\{[^{}]*\}/g) ?? [];
+    // Chỉ soi selector TƯƠNG TÁC. Bỏ qua chi tiết trang trí nằm TRONG nút (vd .switch chỉ là
+    // rãnh gạt của .toggle-row, không phải vùng chạm) — nếu tính cả nó sẽ báo dương tính giả.
+    const interactive = /(^|[,{\s])(button|summary)\b|\.(btn|segment|icon-button|chip-button|loc-button|toggle-row)\b/;
+    const tooSmall = [];
+    for (const block of blocks) {
+      const open = block.indexOf("{");
+      const selector = block.slice(0, open).trim();
+      const body = block.slice(open + 1, -1);
+      if (!interactive.test(selector)) continue;
+      for (const m of body.matchAll(/(min-height|height)\s*:\s*([0-9.]+)px/g)) {
+        if (Number(m[2]) < 44) tooSmall.push(`${selector} → ${m[1]}: ${m[2]}px`);
+      }
+    }
+    expect(tooSmall).toEqual([]);
+  });
 });
