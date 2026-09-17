@@ -291,7 +291,8 @@ function renderRaw(state: AppState, actions: Actions): HTMLElement {
         ? `${formatNumber(lang, v / 1000, { maximumFractionDigits: 1 })} km`
         : `${formatNumber(lang, v)} m`;
 
-  const stats: HTMLElement[] = [
+  // Chỉ dựng 21 ô "thông số thô" khi panel thực sự đang mở.
+  const buildStats = (): HTMLElement[] => [
     stat(t(lang, "raw.temperature"), u(p.temperature_2m, t(lang, "unit.celsius"), { maximumFractionDigits: 1 })),
     stat(t(lang, "raw.apparent"), u(p.apparent_temperature, t(lang, "unit.celsius"), { maximumFractionDigits: 1 })),
     stat(t(lang, "raw.humidity"), u(p.relative_humidity_2m, t(lang, "unit.percent"))),
@@ -331,7 +332,7 @@ function renderRaw(state: AppState, actions: Actions): HTMLElement {
       h("span", { text: t(lang, state.rawOpen ? "panel.hideRaw" : "panel.showRaw") }),
       makeIcon(ICONS.chevronDown, 18, state.rawOpen ? "rotate" : ""),
     ),
-    state.rawOpen ? h("dl", { class: "stat-grid" }, ...stats) : null,
+    state.rawOpen ? h("dl", { class: "stat-grid" }, ...buildStats()) : null,
   );
 }
 
@@ -482,7 +483,7 @@ function renderFooter(state: AppState): HTMLElement {
       h("span", {
         text: `${t(lang, "footer.fetched")}: ${ev ? fetchedLabel(lang, ev.dataSource.fetchedAt) : "—"}`,
       }),
-      h("span", { text: `${t(lang, "footer.timezone")}: Europe/Berlin` }),
+      h("span", { text: `${t(lang, "footer.timezone")}: ${APP_TIMEZONE}` }),
     ),
   );
 }
@@ -491,14 +492,17 @@ function renderAppBar(state: AppState, actions: Actions): HTMLElement {
   const lang = state.lang;
   const ev = state.evaluation;
   const open = isSheetOpen(state.sheet);
-  const summary = ev
-    ? t(lang, "appbar.summary", {
-        verdict: verdictLabel(lang, ev.verdict),
-        score: formatNumber(lang, ev.score),
-      })
-    : state.status === "error"
-      ? t(lang, "status.errorTitle")
-      : t(lang, "status.loading");
+  let summary: string;
+  if (ev) {
+    summary = t(lang, "appbar.summary", {
+      verdict: verdictLabel(lang, ev.verdict),
+      score: formatNumber(lang, ev.score),
+    });
+  } else if (state.status === "error") {
+    summary = t(lang, "status.errorTitle");
+  } else {
+    summary = t(lang, "status.loading");
+  }
   return h(
     "header",
     { class: "appbar" },
@@ -747,7 +751,7 @@ function renderInputsSheet(state: AppState, actions: Actions): HTMLElement[] {
         makeIcon(ICONS.calendar, 16),
         h("span", { text: t(lang, "time.nextHour") }),
       ),
-      h("p", { class: "sheet-note", text: `${t(lang, "time.local")}: Europe/Berlin` }),
+      h("p", { class: "sheet-note", text: `${t(lang, "time.local")}: ${APP_TIMEZONE}` }),
       h("button", { class: "btn primary full", type: "button", onclick: actions.applyTime }, t(lang, "time.apply")),
     ),
     h(
@@ -835,7 +839,12 @@ function renderInputsSheet(state: AppState, actions: Actions): HTMLElement[] {
     ),
     h(
       "button",
-      { class: "btn ghost full", type: "button", onclick: () => actions.openSheet("location") },
+      {
+        class: "btn ghost full",
+        type: "button",
+        dataset: { sheetOpener: "location" },
+        onclick: () => actions.openSheet("location"),
+      },
       makeIcon(ICONS.mapPin, 16),
       h("span", { text: t(lang, "header.changeLocation") }),
     ),

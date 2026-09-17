@@ -138,7 +138,8 @@ body {
 .appbar {
   position: sticky;
   top: 0;
-  z-index: 20;
+  /* Trên .sheet-backdrop (z-index: 50) để nút .appbar-back vẫn bấm được khi sheet mở. */
+  z-index: 60;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -260,7 +261,7 @@ body {
   flex: 1;
 }
 
-.actionbar-adjust {
+.actionbar .actionbar-adjust {
   flex: 1.4;
 }
 

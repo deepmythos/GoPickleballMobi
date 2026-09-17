@@ -161,6 +161,8 @@ function start(): void {
 
   let sheetEntryPushed = false;
   let pendingFocus: "sheet" | "opener" | null = null;
+  /** Selector của nút đã MỞ sheet, để trả focus về đúng chỗ khi đóng. */
+  let openerSelector = ".actionbar-adjust";
 
   function persist(): void {
     savePreferences({
@@ -367,7 +369,10 @@ function start(): void {
       pendingFocus = "opener";
       if (sheetEntryPushed) {
         sheetEntryPushed = false;
+        // popstate sẽ đồng bộ lại query string trên entry vừa quay về.
         window.history.back();
+      } else {
+        updateUrl();
       }
     }
     render();
@@ -376,11 +381,16 @@ function start(): void {
   const actions: Actions = {
     openSheet(panel) {
       if (panel === "location") {
+        // Nhớ nút đã mở: appbar khi mở từ ngoài, nút trong sheet khi mở từ sheet khác.
+        openerSelector = isSheetOpen(state.sheet)
+          ? '[data-sheet-opener="location"]'
+          : ".appbar-loc";
         state.draft = { ...state.location };
         state.searchQuery = "";
         state.geoResults = [];
         state.geoStatus = "idle";
       } else {
+        openerSelector = ".actionbar-adjust";
         state.atInput = state.targetHour;
       }
       runSheetActions({ type: "open", panel });
@@ -667,8 +677,11 @@ function start(): void {
       const which = pendingFocus;
       pendingFocus = null;
       requestAnimationFrame(() => {
-        const selector = which === "sheet" ? ".sheet-close" : ".actionbar-adjust";
-        root.querySelector<HTMLElement>(selector)?.focus();
+        const selector = which === "sheet" ? ".sheet-close" : openerSelector;
+        const target =
+          root.querySelector<HTMLElement>(selector) ??
+          root.querySelector<HTMLElement>(".actionbar-adjust");
+        target?.focus();
       });
     }
   }
@@ -690,13 +703,16 @@ function start(): void {
   });
 
   window.addEventListener("popstate", () => {
-    if (isSheetOpen(state.sheet)) {
+    if (isSheetOpen(state.sheet) && sheetEntryPushed) {
       // Lịch sử đã bị trình duyệt pop; đóng đúng một cấp, không gọi back lần nữa.
+      // Đặt cờ NGAY trong handler để pop xếp hàng không đóng nhầm sheet mới.
       sheetEntryPushed = false;
       state.sheet = sheetReducer(state.sheet, { type: "close" });
       pendingFocus = "opener";
       render();
     }
+    // Sau khi quay về entry trước, đồng bộ lại query string với state hiện tại.
+    updateUrl();
   });
 
   render();
