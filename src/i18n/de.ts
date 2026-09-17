@@ -5,6 +5,7 @@ export const de: Dict = {
   "app.subtitle": "Jetzt auf den Platz?",
   "app.loading": "Wird geladen…",
   "common.close": "Schließen",
+  "common.none": "—",
 
   "appbar.back": "Zurück",
   "appbar.adjust": "Anpassen",
@@ -85,6 +86,7 @@ export const de: Dict = {
   "reason.gate.gust": "Sturmböen → nicht sicher zu spielen.",
   "reason.gate.heat": "Extreme Hitze → nicht sicher zu spielen.",
   "reason.gate.cold": "Extreme Kälte → nicht sicher zu spielen.",
+  "reason.gate.wet": "Zu viel Regen in den letzten 24 Stunden, Platz noch nass → gilt als nicht spielbar.",
 
   "factor.rain_current": "Aktueller Regen",
   "factor.rain_probability": "Regenwahrscheinlichkeit",
@@ -246,4 +248,6 @@ export const de: Dict = {
   "unit.eaqi": "EAQI",
   "unit.hpa": "hPa",
   "unit.wm2": "W/m²",
+  "unit.km": "km",
+  "unit.ugm3": "µg/m³",
 };

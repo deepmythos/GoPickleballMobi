@@ -24,4 +24,14 @@ describe("i18n dictionaries", () => {
     expect(weatherCodeKey(95)).toBe("wmo.thunderstorm");
     expect(weatherCodeKey(9999)).toBeNull();
   });
+
+  it("provides the shared placeholder and the unit glyphs in every language", () => {
+    for (const lang of ["vi", "de", "en"] as const) {
+      expect(dictionaries[lang]["common.none"]).toBe("—");
+      expect(dictionaries[lang]["unit.km"]).toBe("km");
+      expect(dictionaries[lang]["unit.meter"]).toBe("m");
+      expect(dictionaries[lang]["unit.ugm3"]).toBe("µg/m³");
+      expect(dictionaries[lang]["unit.deg"]).toBe("°");
+    }
+  });
 });

@@ -3,6 +3,7 @@ export const vi = {
   "app.subtitle": "Có nên ra sân lúc này không?",
   "app.loading": "Đang tải…",
   "common.close": "Đóng",
+  "common.none": "—",
 
   "appbar.back": "Quay lại",
   "appbar.adjust": "Điều chỉnh",
@@ -83,6 +84,7 @@ export const vi = {
   "reason.gate.gust": "Gió giật bão cấp → không an toàn để chơi.",
   "reason.gate.heat": "Nắng nóng cực đoan → không an toàn để chơi.",
   "reason.gate.cold": "Rét đậm cực đoan → không an toàn để chơi.",
+  "reason.gate.wet": "Mưa 24 giờ qua quá nhiều, sân còn ướt → coi như không chơi được.",
 
   "factor.rain_current": "Mưa hiện tại",
   "factor.rain_probability": "Xác suất mưa",
@@ -244,6 +246,8 @@ export const vi = {
   "unit.eaqi": "EAQI",
   "unit.hpa": "hPa",
   "unit.wm2": "W/m²",
+  "unit.km": "km",
+  "unit.ugm3": "µg/m³",
 } as const;
 
 export type Dict = Record<keyof typeof vi, string>;

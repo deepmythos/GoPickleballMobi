@@ -150,7 +150,7 @@ function factorSentence(lang: Lang, id: string, impact: number): string {
 
 function weatherText(lang: Lang, code: number | null): string {
   const key = weatherCodeKey(code);
-  return key ? t(lang, key) : "—";
+  return key ? t(lang, key) : t(lang, "common.none");
 }
 
 function renderScoreRing(lang: Lang, score: number, verdict: string): HTMLElement {
@@ -224,7 +224,7 @@ function renderFactors(state: AppState, animate: boolean): HTMLElement {
           ? t(lang, "raw.day")
           : t(lang, "raw.night")
         : factor.unit === "bool"
-          ? "—"
+          ? t(lang, "common.none")
           : `${formatNumber(lang, factor.value, { maximumFractionDigits: 1 })} ${factor.unit}`;
     // Thanh tác động: độ dài THẬT tính từ |impact| / maxWeight, không bịa.
     const bar = impactBar(factor.impact, meta ? meta.maxWeight : 0);
@@ -261,7 +261,7 @@ function renderFactors(state: AppState, animate: boolean): HTMLElement {
           h("dd", {
             text: meta
               ? `\u00b1${formatNumber(lang, meta.maxWeight)} ${t(lang, "detail.points")}`
-              : "—",
+              : t(lang, "common.none"),
           }),
         ),
         h("div", {}, h("dt", { text: t(lang, "detail.impact") }), h("dd", { text: `${signed(lang, factor.impact)} ${t(lang, "detail.points")}` })),
@@ -299,15 +299,15 @@ function renderRaw(state: AppState, actions: Actions): HTMLElement {
   const lang = state.lang;
   const p = ev.point;
   const n = (v: number | null, opts: Intl.NumberFormatOptions = {}) =>
-    v === null ? "—" : formatNumber(lang, v, opts);
+    v === null ? t(lang, "common.none") : formatNumber(lang, v, opts);
   const u = (v: number | null, unit: string, opts: Intl.NumberFormatOptions = {}) =>
-    v === null ? "—" : `${formatNumber(lang, v, opts)} ${unit}`;
+    v === null ? t(lang, "common.none") : `${formatNumber(lang, v, opts)} ${unit}`;
   const visibility = (v: number | null) =>
     v === null
-      ? "—"
+      ? t(lang, "common.none")
       : v >= 1000
-        ? `${formatNumber(lang, v / 1000, { maximumFractionDigits: 1 })} km`
-        : `${formatNumber(lang, v)} m`;
+        ? `${formatNumber(lang, v / 1000, { maximumFractionDigits: 1 })} ${t(lang, "unit.km")}`
+        : `${formatNumber(lang, v)} ${t(lang, "unit.meter")}`;
 
   // Chỉ dựng 21 ô "thông số thô" khi panel thực sự đang mở.
   const buildStats = (): HTMLElement[] => [
@@ -324,13 +324,13 @@ function renderRaw(state: AppState, actions: Actions): HTMLElement {
     stat(t(lang, "raw.windSpeed"), u(p.wind_speed_10m, t(lang, "unit.kmh"), { maximumFractionDigits: 1 })),
     stat(t(lang, "raw.windGust"), u(p.wind_gusts_10m, t(lang, "unit.kmh"), { maximumFractionDigits: 1 })),
     stat(t(lang, "raw.uvIndex"), n(p.uv_index, { maximumFractionDigits: 1 })),
-    stat(t(lang, "raw.isDay"), p.is_day === null ? "—" : p.is_day === 1 ? t(lang, "raw.day") : t(lang, "raw.night")),
+    stat(t(lang, "raw.isDay"), p.is_day === null ? t(lang, "common.none") : p.is_day === 1 ? t(lang, "raw.day") : t(lang, "raw.night")),
     stat(t(lang, "raw.sunElevation"), u(ev.sun.elevation, t(lang, "unit.deg"), { maximumFractionDigits: 1 })),
     stat(t(lang, "raw.sunAzimuth"), u(ev.sun.azimuth, t(lang, "unit.deg"), { maximumFractionDigits: 0 })),
-    stat(t(lang, "raw.sunrise"), ev.sunrise ? formatClock(lang, ev.sunrise) : "—"),
-    stat(t(lang, "raw.sunset"), ev.sunset ? formatClock(lang, ev.sunset) : "—"),
-    stat(t(lang, "raw.pm25"), u(ev.pm25, "µg/m³", { maximumFractionDigits: 1 })),
-    stat(t(lang, "raw.pm10"), u(ev.pm10, "µg/m³", { maximumFractionDigits: 1 })),
+    stat(t(lang, "raw.sunrise"), ev.sunrise ? formatClock(lang, ev.sunrise) : t(lang, "common.none")),
+    stat(t(lang, "raw.sunset"), ev.sunset ? formatClock(lang, ev.sunset) : t(lang, "common.none")),
+    stat(t(lang, "raw.pm25"), u(ev.pm25, t(lang, "unit.ugm3"), { maximumFractionDigits: 1 })),
+    stat(t(lang, "raw.pm10"), u(ev.pm10, t(lang, "unit.ugm3"), { maximumFractionDigits: 1 })),
     stat(t(lang, "raw.europeanAqi"), n(ev.aqi)),
   ];
 
@@ -499,7 +499,7 @@ function renderFooter(state: AppState): HTMLElement {
       "div",
       { class: "footer-meta" },
       h("span", {
-        text: `${t(lang, "footer.fetched")}: ${ev ? fetchedLabel(lang, ev.dataSource.fetchedAt) : "—"}`,
+        text: `${t(lang, "footer.fetched")}: ${ev ? fetchedLabel(lang, ev.dataSource.fetchedAt) : t(lang, "common.none")}`,
       }),
       h("span", { text: `${t(lang, "footer.timezone")}: ${APP_TIMEZONE}` }),
     ),
@@ -749,7 +749,7 @@ function renderInputsSheet(state: AppState, actions: Actions): HTMLElement[] {
   const lang = state.lang;
   const bearingValue = h("span", {
     class: "bearing-value",
-    text: `${formatNumber(lang, state.courtBearing)}°`,
+    text: `${formatNumber(lang, state.courtBearing)}${t(lang, "unit.deg")}`,
   });
   return [
     h(
@@ -795,7 +795,7 @@ function renderInputsSheet(state: AppState, actions: Actions): HTMLElement[] {
           // chỉ chốt state lúc nhả tay để thanh trượt không bị huỷ.
           oninput: (e: Event) => {
             const value = Number((e.target as HTMLInputElement).value);
-            bearingValue.textContent = `${formatNumber(lang, value)}°`;
+            bearingValue.textContent = `${formatNumber(lang, value)}${t(lang, "unit.deg")}`;
           },
           onchange: (e: Event) => actions.setBearing(Number((e.target as HTMLInputElement).value)),
           onfocus: focusScroll,
@@ -878,7 +878,7 @@ function renderInputsSheet(state: AppState, actions: Actions): HTMLElement[] {
         "p",
         { class: "sheet-note build-marker" },
         `${BUILD_ID} · ${t(lang, "build.builtAt", {
-          time: BUILD_TIME ? formatDateTime(lang, BUILD_TIME.slice(0, 16)) : "—",
+          time: BUILD_TIME ? formatDateTime(lang, BUILD_TIME.slice(0, 16)) : t(lang, "common.none"),
         })}`,
       ),
     ),

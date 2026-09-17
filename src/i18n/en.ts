@@ -5,6 +5,7 @@ export const en: Dict = {
   "app.subtitle": "Should you head to the court now?",
   "app.loading": "Loading…",
   "common.close": "Close",
+  "common.none": "—",
 
   "appbar.back": "Back",
   "appbar.adjust": "Adjust",
@@ -85,6 +86,7 @@ export const en: Dict = {
   "reason.gate.gust": "Storm-force gusts → not safe to play.",
   "reason.gate.heat": "Extreme heat → not safe to play.",
   "reason.gate.cold": "Extreme cold → not safe to play.",
+  "reason.gate.wet": "Too much rain in the last 24 hours, court still wet → treated as not playable.",
 
   "factor.rain_current": "Current rain",
   "factor.rain_probability": "Rain probability",
@@ -246,4 +248,6 @@ export const en: Dict = {
   "unit.eaqi": "EAQI",
   "unit.hpa": "hPa",
   "unit.wm2": "W/m²",
+  "unit.km": "km",
+  "unit.ugm3": "µg/m³",
 };

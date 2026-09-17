@@ -64,3 +64,32 @@ export function createSwipeLatch(): { decide(sample: SwipeSample): SwipeOutcome;
     },
   };
 }
+
+/** Điều khiển tự xử lý cử chỉ ngang: điểm chạm vào chúng KHÔNG phải swipe-back. */
+export const SWIPE_EXCLUDE_TAGS = ["input", "textarea", "select"] as const;
+export const SWIPE_EXCLUDE_ROLES = ["slider"] as const;
+export const SWIPE_EXCLUDE_CLASSES = ["range", "segmented", "segment"] as const;
+
+/** Đặc điểm của phần tử bắt đầu cử chỉ — tầng gọi trích từ DOM để giữ file này thuần. */
+export interface TouchTargetTraits {
+  /** Tên thẻ, ví dụ "BUTTON" hoặc "DIV". */
+  tagName: string;
+  /** Giá trị role của chính phần tử (null nếu không có). */
+  role: string | null;
+  /** Class của chính phần tử và mọi tổ tiên (gần trước, xa sau). */
+  classNames: readonly string[];
+}
+
+/**
+ * true khi điểm chạm thuộc điều khiển tự xử lý cử chỉ: ô nhập, thanh trượt,
+ * hoặc băng chọn segmented (kể cả nút con .segment).
+ */
+export function isExcludedTouchTarget(traits: TouchTargetTraits): boolean {
+  const tag = traits.tagName.toLowerCase();
+  if ((SWIPE_EXCLUDE_TAGS as readonly string[]).includes(tag)) return true;
+  const role = traits.role;
+  if (role !== null && (SWIPE_EXCLUDE_ROLES as readonly string[]).includes(role)) return true;
+  return traits.classNames.some((name) =>
+    (SWIPE_EXCLUDE_CLASSES as readonly string[]).includes(name),
+  );
+}
