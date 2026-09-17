@@ -64,7 +64,12 @@ function trackedChangesAt(dir) {
 
 beforeAll(() => {
   const marker = resolve(root, UNTRACKED_MARKER);
-  writeFileSync(marker, "pin: file khong duoc theo doi (mo phong .vercel/ trong container build)\n");
+  // File có sẵn (tàn dư của lần chạy bị kill) thì KHÔNG ghi đè và cũng KHÔNG xoá: nó vẫn là một
+  // file không được theo dõi — đúng thứ pin cần — và xoá đi là can thiệp vào cây làm việc của người khác.
+  const preexisting = existsSync(marker);
+  if (!preexisting) {
+    writeFileSync(marker, "pin: file khong duoc theo doi (mo phong .vercel/ trong container build)\n");
+  }
   try {
     // Tự kiểm chứng cái pin: file phải HIỆN ra ở `git status --porcelain`, tức là không bị .gitignore.
     // Nếu nó bị bỏ qua thì pin này vô nghĩa (bug cũ không kích hoạt) → báo lỗi ngay.
@@ -77,7 +82,7 @@ beforeAll(() => {
     });
     trackedDirtyAtBuild = trackedChangesAt(root).length > 0;
   } finally {
-    rmSync(marker, { force: true });
+    if (!preexisting) rmSync(marker, { force: true });
   }
   build = JSON.parse(readText("dist", "build.json"));
 }, 120000);

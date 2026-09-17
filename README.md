@@ -45,8 +45,11 @@ Mỗi bản build mang một marker nhận diện chính bản đang được ph
 
 - `id` = `git rev-parse --short=12 HEAD`, cộng hậu tố `-dirty` **chỉ khi** có thay đổi chưa commit
   trên **file đã được theo dõi** (`git status --porcelain --untracked-files=no`). File không được
-  theo dõi (`.vercel/`, cache, rác của container CI) **không** tính là bẩn — chúng không nằm trong
-  bundle, nên bản deploy sạch không được tự nhận là `-dirty`.
+  theo dõi (`.vercel/`, cache, rác của container CI) **không** tính là bẩn: bản deploy sạch không
+  được tự nhận là `-dirty` chỉ vì container có thêm file lạ.
+- Hệ quả cần biết: file nguồn **mới** nhưng chưa `git add` cũng KHÔNG làm marker thành `-dirty`
+  (dù nó có thể đã vào bundle). Marker chỉ nói về trạng thái của các file **đã được theo dõi**,
+  nên hãy commit file mới trước khi build/deploy.
 - Không có git (hoặc git lỗi) → marker là `dev`.
 - Marker xuất hiện ở `dist/build.json`, `window.__build`, dòng build trong sheet cài đặt, và trong
   tên cache của service worker (`pickleball-go-nogo-shell-<id>`), nên mỗi bản mới có cache mới.
