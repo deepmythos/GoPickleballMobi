@@ -247,6 +247,9 @@ describe("PWA artifacts", () => {
     expect(calls.length).toBeGreaterThan(0);
     // Không chỉ "có ít nhất một": MỌI điểm tra cache phải bỏ qua Vary, kể cả fallback ./index.html.
     expect(withOption.length).toBe(calls.length);
+    // So số lượng thôi thì việc XOÁ hẳn điểm tra cache cũng làm hai vế bằng nhau (test vẫn PASS),
+    // nên phải khẳng định riêng rằng fallback ./index.html TỒN TẠI và có ignoreVary.
+    expect(/caches\.match\([^;)]*index\.html[^;)]*ignoreVary:\s*true/.test(code)).toBe(true);
   });
 
   it("19. dist/sw.js bỏ header Vary trước khi ghi cache", () => {
