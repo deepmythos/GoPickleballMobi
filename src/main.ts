@@ -25,6 +25,7 @@ import type { BaseUrls, GeoLocation, Lang } from "./types";
 import { hostOf, renderApp } from "./ui/render";
 import { createSwipeLatch, isExcludedTouchTarget, isHorizontalDominant, type SwipeSample, type TouchTargetTraits } from "./ui/gesture";
 import { initialSheetState, isSheetOpen, sheetReducer, type SheetAction } from "./ui/sheet";
+import { resolveTheme, themeAttribute, THEME_STORAGE_KEY } from "./ui/theme";
 import type { Actions, AppState, ThemeChoice } from "./ui/state";
 
 const DEFAULT_LOCATION: GeoLocation = {
@@ -32,8 +33,6 @@ const DEFAULT_LOCATION: GeoLocation = {
   lon: 8.7605459,
   name: "Pickleball-Plätze, Offenthaler Straße, Dietzenbach",
 };
-
-const THEME_KEY = "pickleball-go-nogo.theme.v1";
 
 interface WindowVerdict {
   score: number | null;
@@ -79,17 +78,16 @@ function readBaseUrls(params: URLSearchParams): BaseUrls {
 
 function readTheme(): ThemeChoice {
   try {
-    const stored = localStorage.getItem(THEME_KEY);
-    if (stored === "light" || stored === "dark" || stored === "system") return stored;
+    return resolveTheme(localStorage.getItem(THEME_STORAGE_KEY));
   } catch {
-    /* ignore */
+    return "system";
   }
-  return "system";
 }
 
 function applyTheme(theme: ThemeChoice): void {
-  if (theme === "system") document.documentElement.removeAttribute("data-theme");
-  else document.documentElement.dataset.theme = theme;
+  const attribute = themeAttribute(theme);
+  if (attribute === null) document.documentElement.removeAttribute("data-theme");
+  else document.documentElement.dataset.theme = attribute;
 }
 
 function initialiseState(params: URLSearchParams): AppState {
@@ -414,7 +412,7 @@ function start(): void {
       state.theme = theme;
       applyTheme(theme);
       try {
-        localStorage.setItem(THEME_KEY, theme);
+        localStorage.setItem(THEME_STORAGE_KEY, theme);
       } catch {
         /* ignore */
       }

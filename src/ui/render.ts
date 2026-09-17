@@ -13,6 +13,7 @@ import { BUILD_ID, BUILD_TIME } from "../build";
 import type { Lang } from "../types";
 import { isSheetOpen, type SheetPanel } from "./sheet";
 import { factorIcon, gateIcon, makeIcon, ICONS } from "./icons";
+import { impactBar } from "./impact";
 import type { Actions, AppState } from "./state";
 
 type Child = Node | string | number | null | undefined | false;
@@ -57,6 +58,17 @@ function svgEl(tag: string, attrs: Attrs = {}, ...children: Child[]): SVGElement
 }
 
 const MSG = (key: string): MessageKey => key as MessageKey;
+
+/**
+ * Cờ module-level: chuyển động vào chỉ chạy ở lần render ĐẦU TIÊN có kết quả.
+ * Mọi render sau (mở sheet, mở details, đổi giờ…) tái dùng DOM tĩnh, không phát lại.
+ */
+let revealed = false;
+
+/** So le hàng yếu tố: kẹp chỉ số ở 8 để tổng thời gian không phình. */
+function revealStyle(index: number): string {
+  return `--reveal-index: ${Math.min(index, 8)}`;
+}
 
 /** Host thật của một URL dữ liệu; lỗi parse thì trả nguyên chuỗi. */
 export function hostOf(url: string): string {
@@ -199,11 +211,11 @@ function renderGates(lang: Lang, gates: string[]): HTMLElement {
   );
 }
 
-function renderFactors(state: AppState): HTMLElement {
+function renderFactors(state: AppState, animate: boolean): HTMLElement {
   const ev = state.evaluation!;
   const lang = state.lang;
   const sorted = [...ev.factors].sort((a, b) => Math.abs(b.impact) - Math.abs(a.impact));
-  const items = sorted.map((factor) => {
+  const items = sorted.map((factor, index) => {
     const band = bandFor(factor.impact);
     const meta = FACTOR_META[factor.id];
     const valueText =
@@ -214,21 +226,23 @@ function renderFactors(state: AppState): HTMLElement {
         : factor.unit === "bool"
           ? t(lang, "common.none")
           : `${formatNumber(lang, factor.value, { maximumFractionDigits: 1 })} ${factor.unit}`;
+    // Thanh tác động: độ dài THẬT tính từ |impact| / maxWeight, không bịa.
+    const bar = impactBar(factor.impact, meta ? meta.maxWeight : 0);
     const summary = h(
       "summary",
       { class: "factor-summary" },
       h("span", { class: `factor-icon band-${band}` }, factorIcon(factor.id, 20)),
+      h("span", { class: "factor-label", text: t(lang, MSG(`factor.${factor.id}`)) }),
+      h("span", { class: "factor-value", text: valueText }),
       h(
         "span",
-        { class: "factor-main" },
-        h("span", { class: "factor-label", text: t(lang, MSG(`factor.${factor.id}`)) }),
-        h("span", { class: "factor-value", text: valueText }),
-      ),
-      h(
-        "span",
-        { class: `impact-chip band-${band}`, dataset: { impact: String(factor.impact) } },
-        makeIcon(factor.impact > 0 ? ICONS.arrowUp : factor.impact < 0 ? ICONS.arrowDown : ICONS.minus, 14),
-        h("span", { text: signed(lang, factor.impact) }),
+        { class: "factor-impact" },
+        h("span", { class: `impact-value side-${bar.side}`, text: signed(lang, factor.impact) }),
+        h(
+          "span",
+          { class: "impact-track", "aria-hidden": "true" },
+          h("span", { class: `impact-bar side-${bar.side}`, style: `width:${bar.widthPct}%` }),
+        ),
       ),
     );
     const detail = h(
@@ -253,7 +267,11 @@ function renderFactors(state: AppState): HTMLElement {
         h("div", {}, h("dt", { text: t(lang, "detail.impact") }), h("dd", { text: `${signed(lang, factor.impact)} ${t(lang, "detail.points")}` })),
       ),
     );
-    return h("li", { class: "factor" }, h("details", {}, summary, detail));
+    return h(
+      "li",
+      { class: `factor${animate ? " reveal" : ""}`, style: animate ? revealStyle(index) : undefined },
+      h("details", {}, summary, detail),
+    );
   });
 
   return h(
@@ -563,12 +581,16 @@ function renderActionBar(state: AppState, actions: Actions): HTMLElement {
   );
 }
 
-function renderHero(state: AppState): HTMLElement {
+function renderHero(state: AppState, animate: boolean): HTMLElement {
   const ev = state.evaluation!;
   const lang = state.lang;
   return h(
     "section",
-    { class: "hero", dataset: { verdict: verdictClass(ev.verdict) } },
+    {
+      class: `hero${animate ? " reveal" : ""}`,
+      style: animate ? revealStyle(0) : undefined,
+      dataset: { verdict: verdictClass(ev.verdict) },
+    },
     renderScoreRing(lang, ev.score, ev.verdict),
     h(
       "div",
@@ -914,14 +936,15 @@ function renderSheet(state: AppState, actions: Actions): HTMLElement | null {
 export function renderApp(root: HTMLElement, state: AppState, actions: Actions): void {
   root.textContent = "";
   const ev = state.evaluation;
+  const animate = ev !== null && !revealed;
 
   const main = h(
     "main",
     { class: "main" },
     renderUpdateBanner(state, actions),
     renderBanner(state),
-    ev ? renderHero(state) : renderStatus(state, actions),
-    ev ? renderFactors(state) : null,
+    ev ? renderHero(state, animate) : renderStatus(state, actions),
+    ev ? renderFactors(state, animate) : null,
     ev ? renderRaw(state, actions) : null,
     ev ? renderAssumptions(state) : null,
   );
@@ -938,4 +961,7 @@ export function renderApp(root: HTMLElement, state: AppState, actions: Actions):
   root.appendChild(app);
   const sheet = renderSheet(state, actions);
   if (sheet) root.appendChild(sheet);
+
+  // Chỉ đánh dấu đã reveal SAU khi gắn DOM của kết quả đầu tiên.
+  if (animate) revealed = true;
 }
