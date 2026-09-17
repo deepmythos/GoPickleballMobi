@@ -2,8 +2,10 @@ import type { AirQualityData, ForecastData, GeocodingResult } from "../api";
 import type { Evaluation } from "../evaluate";
 import type { BaseUrls, GeoLocation, Lang } from "../types";
 import type { SheetState } from "./sheet";
+import type { ThemeChoice } from "./theme";
 
-export type ThemeChoice = "system" | "light" | "dark";
+// Re-export để giữ nguyên các import cũ từ "./ui/state" (không phá hợp đồng cũ).
+export type { ThemeChoice };
 export type GeoStatus = "idle" | "loading" | "done" | "error";
 
 export interface AppState {

@@ -18,6 +18,20 @@
       content="Pickleball Go/No-Go: điểm 0-100 và lập luận cho biết có nên ra sân pickleball lúc này không."
     />
     <title>Pickleball Go/No-Go</title>
+    <script>
+      // Chống nháy theme: đọc CÙNG khoá localStorage và set data-theme trước lần vẽ đầu tiên.
+      // Giá trị lạ/không đọc được → không set gì (theo máy). Khoá phải khớp THEME_STORAGE_KEY.
+      (function () {
+        try {
+          var stored = localStorage.getItem("pickleball-go-nogo.theme.v1");
+          if (stored === "light" || stored === "dark") {
+            document.documentElement.dataset.theme = stored;
+          }
+        } catch (e) {
+          /* localStorage bị chặn → để hệ thống quyết định */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="app">
