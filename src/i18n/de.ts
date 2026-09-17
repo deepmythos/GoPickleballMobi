@@ -210,6 +210,13 @@ export const de: Dict = {
   "error.parse": "Ungültige Antwortdaten.",
   "error.unknown": "Unbekannter Fehler.",
 
+  "build.title": "Version",
+  "build.builtAt": "Erstellt am {time}",
+  "build.updateAvailable": "Neue Version verfügbar — neu laden",
+  "build.updateReload": "Neu laden",
+  "build.updateDismiss": "Später",
+  "status.offline": "Offline – zuletzt gespeicherter Stand wird angezeigt.",
+
   "unit.kmh": "km/h",
   "unit.mm": "mm",
   "unit.mmh": "mm/h",

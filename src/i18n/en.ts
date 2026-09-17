@@ -210,6 +210,13 @@ export const en: Dict = {
   "error.parse": "Invalid response data.",
   "error.unknown": "Unknown error.",
 
+  "build.title": "Version",
+  "build.builtAt": "Built {time}",
+  "build.updateAvailable": "New version — reload",
+  "build.updateReload": "Reload",
+  "build.updateDismiss": "Later",
+  "status.offline": "Offline — showing the last saved reading.",
+
   "unit.kmh": "km/h",
   "unit.mm": "mm",
   "unit.mmh": "mm/h",

@@ -1088,7 +1088,7 @@ body {
 
 .segment {
   flex: 1;
-  min-height: 40px;
+  min-height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1202,4 +1202,71 @@ body {
     gap: 26px;
     padding: 12px 0;
   }
+}
+
+/* --------------------------------------------------- full-screen baseline */
+
+html {
+  height: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  min-height: 100vh;
+  min-height: 100dvh;
+  overscroll-behavior-y: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.app {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* baseline: interactive targets ≥ 44×44 px */
+button, [role="button"], a, summary { min-height: 44px; min-width: 44px; }
+
+/* --------------------------------------------------- pwa banners */
+
+.banner.update {
+  align-items: center;
+  background: var(--info-soft);
+  color: var(--info);
+  border: 1px solid var(--border);
+}
+
+.banner.offline {
+  align-items: center;
+  background: var(--surface-2);
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+
+.banner-dismiss {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.btn.compact {
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.build-marker {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  word-break: break-word;
 }

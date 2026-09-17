@@ -27,6 +27,18 @@ npx serve dist
 Dữ liệu được gọi trực tiếp từ trình duyệt tới Open-Meteo (các API này bật CORS), nên không cần
 proxy. Nếu deploy dưới một sub-path, `base: "./"` trong `vite.config.ts` đã xử lý đường dẫn tương đối.
 
+## Icon
+
+Bộ icon PWA được sinh tất định từ SVG nguồn bằng script nội bộ (không thêm dependency):
+
+```bash
+npm run icons
+```
+
+Script `scripts/gen-icons.mjs` đọc `public/icons/icon.svg` và `public/icons/icon-maskable.svg`, rasterize
+với supersampling 4×4 rồi ghi PNG thật: `public/icons/icon-192.png`, `public/icons/icon-512.png`,
+`public/icons/icon-maskable-512.png` và `public/apple-touch-icon.png`. Chạy nhiều lần cho kết quả byte y hệt.
+
 ## Kiến trúc
 
 ```

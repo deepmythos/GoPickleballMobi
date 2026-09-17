@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Pickleball Go/No-Go">
+  <rect x="0" y="0" width="512" height="512" rx="116" fill="#1f6b4a"/>
+  <circle cx="256" cy="256" r="150" fill="#f4f1ea"/>
+  <circle cx="196" cy="206" r="26" fill="#1f6b4a"/>
+  <circle cx="318" cy="214" r="26" fill="#1f6b4a"/>
+  <circle cx="212" cy="318" r="26" fill="#1f6b4a"/>
+  <circle cx="322" cy="322" r="26" fill="#1f6b4a"/>
+  <circle cx="258" cy="262" r="26" fill="#1f6b4a"/>
+</svg>

@@ -29,6 +29,8 @@ export interface AppState {
   draft: GeoLocation;
   atInput: string;
   theme: ThemeChoice;
+  offline: boolean;
+  update: { available: boolean; dismissed: boolean };
 }
 
 export interface Actions {
@@ -48,4 +50,6 @@ export interface Actions {
   applyTime: () => void;
   useNextHour: () => void;
   refresh: () => void;
+  applyUpdate: () => void;
+  dismissUpdate: () => void;
 }
