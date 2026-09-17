@@ -208,6 +208,13 @@ export const vi = {
   "error.parse": "Dữ liệu trả về không hợp lệ.",
   "error.unknown": "Lỗi không xác định.",
 
+  "build.title": "Phiên bản",
+  "build.builtAt": "Bản dựng lúc {time}",
+  "build.updateAvailable": "Có bản mới — Tải lại",
+  "build.updateReload": "Tải lại",
+  "build.updateDismiss": "Để sau",
+  "status.offline": "Không có mạng — đang hiển thị bản lưu gần nhất.",
+
   "unit.kmh": "km/h",
   "unit.mm": "mm",
   "unit.mmh": "mm/h",

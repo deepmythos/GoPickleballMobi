@@ -17,6 +17,8 @@ import {
   saveReading,
 } from "./cache";
 import { evaluate, NoTargetHourError, type Evaluation } from "./evaluate";
+import { BUILD_ID, BUILD_TIME } from "./build";
+import { applyUpdate, initPwa } from "./pwa";
 import { isLang, t } from "./i18n";
 import { APP_TIMEZONE, ceilToHour, formatLocalISO } from "./time";
 import type { BaseUrls, GeoLocation, Lang } from "./types";
@@ -49,6 +51,7 @@ interface WindowVerdict {
 declare global {
   interface Window {
     __verdict?: WindowVerdict;
+    __build?: { id: string; time: string };
   }
 }
 
@@ -138,6 +141,8 @@ function initialiseState(params: URLSearchParams): AppState {
     draft: { ...location },
     atInput: targetHour,
     theme,
+    offline: typeof navigator !== "undefined" && navigator.onLine === false,
+    update: { available: false, dismissed: false },
   };
 }
 
@@ -148,6 +153,7 @@ function start(): void {
   if (!root) throw new Error("Missing #app root");
 
   document.documentElement.lang = state.lang;
+  window.__build = { id: BUILD_ID, time: BUILD_TIME };
 
   const render = (): void => renderApp(root, state, actions);
 
@@ -312,7 +318,7 @@ function start(): void {
     state.forecast = forecast;
     state.air = air;
     state.fetchedAt = fetchedAt;
-    state.stale = false;
+    state.stale = state.offline;
     saveReading({
       key: locationKey(state.location),
       location: state.location,
@@ -461,7 +467,28 @@ function start(): void {
     refresh() {
       void loadData();
     },
+    applyUpdate: () => applyUpdate(),
+    dismissUpdate: () => {
+      state.update = { ...state.update, dismissed: true };
+      render();
+    },
   };
+
+  initPwa({
+    onUpdateAvailable: () => {
+      state.update = { available: true, dismissed: false };
+      render();
+    },
+  });
+
+  window.addEventListener("offline", () => {
+    state.offline = true;
+    render();
+  });
+  window.addEventListener("online", () => {
+    state.offline = false;
+    render();
+  });
 
   render();
   void loadData();

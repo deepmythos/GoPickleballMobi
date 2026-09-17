@@ -9,6 +9,7 @@ import {
 } from "../i18n";
 import { FACTOR_META } from "../scoring";
 import { formatUtcOffset, APP_TIMEZONE, formatLocalISO } from "../time";
+import { BUILD_ID, BUILD_TIME } from "../build";
 import type { Lang } from "../types";
 import { factorIcon, gateIcon, makeIcon, ICONS } from "./icons";
 import type { Actions, AppState } from "./state";
@@ -349,11 +350,47 @@ function renderStatus(state: AppState, actions: Actions): HTMLElement | null {
   return null;
 }
 
+function renderUpdateBanner(state: AppState, actions: Actions): HTMLElement | null {
+  if (!state.update.available || state.update.dismissed) return null;
+  const lang = state.lang;
+  return h(
+    "div",
+    { class: "banner update", role: "status" },
+    makeIcon(ICONS.refresh, 16),
+    h("span", { text: t(lang, "build.updateAvailable") }),
+    h(
+      "button",
+      { class: "btn primary compact", type: "button", onclick: actions.applyUpdate },
+      t(lang, "build.updateReload"),
+    ),
+    h(
+      "button",
+      {
+        class: "banner-dismiss",
+        type: "button",
+        "aria-label": t(lang, "build.updateDismiss"),
+        onclick: actions.dismissUpdate,
+      },
+      makeIcon(ICONS.close, 16),
+    ),
+  );
+}
+
 function renderBanner(state: AppState): HTMLElement | null {
   const lang = state.lang;
   const ev = state.evaluation;
   if (!ev) return null;
   const parts: HTMLElement[] = [];
+  if (state.offline) {
+    parts.push(
+      h(
+        "div",
+        { class: "banner offline" },
+        makeIcon(ICONS.info, 16),
+        h("span", { text: t(lang, "status.offline") }),
+      ),
+    );
+  }
   if (state.stale) {
     parts.push(
       h(
@@ -791,6 +828,19 @@ function renderSettingsSheet(state: AppState, actions: Actions): HTMLElement {
       ),
     ),
     h("button", { class: "btn primary full", type: "button", onclick: actions.closePanel }, t(lang, "header.settings")),
+    h(
+      "div",
+      { class: "setting-block" },
+      h("span", { class: "field-label", text: t(lang, "build.title") }),
+      h(
+        "p",
+        { class: "sheet-note build-marker" },
+        `${BUILD_ID} · ${t(lang, "build.builtAt", {
+          time: BUILD_TIME ? formatDateTime(lang, BUILD_TIME.slice(0, 16)) : "—",
+        })}`,
+      ),
+    ),
+    h("button", { class: "btn primary full", type: "button", onclick: actions.closePanel }, t(lang, "header.settings")),
   );
 }
 
@@ -828,6 +878,7 @@ export function renderApp(root: HTMLElement, state: AppState, actions: Actions):
     "main",
     { class: "main" },
     renderTimebar(state, actions),
+    renderUpdateBanner(state, actions),
     renderBanner(state),
     ev ? renderHero(state) : renderStatus(state, actions),
     ev ? renderFactors(state) : null,
