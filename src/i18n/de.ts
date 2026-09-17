@@ -85,6 +85,7 @@ export const de: Dict = {
   "reason.gate.gust": "Sturmböen → nicht sicher zu spielen.",
   "reason.gate.heat": "Extreme Hitze → nicht sicher zu spielen.",
   "reason.gate.cold": "Extreme Kälte → nicht sicher zu spielen.",
+  "reason.gate.wet": "Zu viel Regen in den letzten 24 Stunden, Platz noch nass → gilt als nicht spielbar.",
 
   "factor.rain_current": "Aktueller Regen",
   "factor.rain_probability": "Regenwahrscheinlichkeit",
