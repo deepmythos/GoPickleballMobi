@@ -7,13 +7,10 @@
 //
 // `gesture.ts` giữ phần QUYẾT ĐỊNH (thuần, không DOM); file này chỉ đọc DOM.
 
-import type { TouchTargetTraits } from "./gesture";
-
-/**
- * Thuộc tính đánh dấu "đừng mở cử chỉ ở đây" (vd: một vùng cuộn ngang tự xử lý cử chỉ).
- * Khai tại đây để adapter chạy được cả trên cây trước khi sửa (test RED cần điều đó).
- */
-export const CONTROL_IGNORE_ATTR = "data-gesture-ignore";
+// Một nguồn duy nhất cho `CONTROL_IGNORE_ATTR`: khai ở `gesture.ts` (module thuần, đã
+// export hằng số này cho tầng gọi) rồi import sang đây. Bản khai trùng cũ có thể trôi khỏi
+// nhau mà không ai phát hiện.
+import { CONTROL_IGNORE_ATTR, type TouchTargetTraits } from "./gesture";
 
 /**
  * Đặc điểm của phần tử bắt đầu cử chỉ: chính nó + toàn bộ chuỗi tổ tiên (gần trước,
