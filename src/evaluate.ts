@@ -33,10 +33,20 @@ export interface Evaluation {
   /** Giờ bắt đầu cửa sổ. */
   targetHour: string;
   utcOffsetMinutes: number;
-  /** Giờ GIỮA cửa sổ — mọi chi tiết bên dưới (point/factors/gates/…) thuộc giờ này (D4). */
+  /**
+   * Giờ mà khối chi tiết bên dưới (point/factors/gates/sun/…) thực sự thuộc về.
+   * Thường là giờ GIỮA cửa sổ (D4), nhưng nếu giữa khoảng thiếu dữ liệu thì lùi về
+   * giờ có dữ liệu đầu tiên — vì vậy `range.midpointHour` có thể KHÁC `detailHour`.
+   */
   localTime: string;
+  /** Giờ của khối chi tiết; bằng `localTime`, tách tên để nơi đọc không nhầm với giờ giữa khoảng. */
+  detailHour: string;
   point: HourlyPoint;
   sun: SunPosition;
+  /** Mặt trời tại giờ BẮT ĐẦU của cửa sổ (vẽ đầu cung chuyển động). */
+  sunStart: SunPosition;
+  /** Mặt trời tại giờ KẾT THÚC của cửa sổ (vẽ cuối cung chuyển động). */
+  sunEnd: SunPosition;
   /** Điểm TRUNG BÌNH CỘNG của cả cửa sổ (range.score). */
   score: number;
   /** classify(range.score) — dải của cả cửa sổ. */
@@ -237,12 +247,20 @@ export function evaluate(params: EvaluateParams): Evaluation {
   const score = range.score ?? detail.hourScore.score;
   const verdict = range.verdict ?? detail.hourScore.verdict;
 
+  // Vị trí mặt trời ở HAI ĐẦU cửa sổ, để hình sân vẽ được cung chuyển động.
+  // Dùng đúng solarPosition(zonedToUtc(hour)) như từng giờ — không phát minh công thức mới.
+  const sunStart = solarPosition(zonedToUtc(from, APP_TIMEZONE), params.location.lat, params.location.lon);
+  const sunEnd = solarPosition(zonedToUtc(to, APP_TIMEZONE), params.location.lat, params.location.lon);
+
   return {
     targetHour: from,
     localTime: detail.hourScore.hour,
+    detailHour: detail.hourScore.hour,
     utcOffsetMinutes: detail.utcOffsetMinutes,
     point: detail.point,
     sun: detail.sun,
+    sunStart,
+    sunEnd,
     score,
     verdict,
     range,

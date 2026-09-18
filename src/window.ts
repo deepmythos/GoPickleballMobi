@@ -2,6 +2,9 @@ import { classify } from "./scoring";
 import { ceilToHour, hourDiff } from "./time";
 import type { VerdictLabel } from "./types";
 
+/** Số giờ tối đa của cửa sổ đánh giá. Chặn trần cứng để tham số URL xấu không sinh hàng triệu mốc giờ. */
+export const MAX_WINDOW_SPAN_HOURS = 24;
+
 /** Số giờ mặc định của cửa sổ đánh giá: from .. from + 2 h (D1). */
 export const DEFAULT_SPAN_HOURS = 2;
 
@@ -47,22 +50,40 @@ function formatHour(ms: number): string {
   return `${year}-${month}-${day}T${hour}:00`;
 }
 
-/** Chuẩn hoá tham số giờ ("YYYY-MM-DDTHH..." bất kỳ) về đúng "YYYY-MM-DDTHH:00". */
-function normalizeHour(value: string): string {
-  return `${value.slice(0, 13)}:00`;
+/**
+ * Chuẩn hoá tham số giờ và XÁC THỰC định dạng. Chỉ nhận "YYYY-MM-DDTHH" (có thể kèm
+ * ":mm"), từ chối ngày trần ("2026-09-18"), chuỗi rác ("abc") hay tháng/ngày/giờ vô lệ.
+ * Trả về mốc "YYYY-MM-DDTHH:00" hoặc null khi không hợp lệ.
+ */
+function normalizeHour(value: string): string | null {
+  const m = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2})(?::(\d{2}))?/);
+  if (!m) return null;
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  const hour = Number(m[4]);
+  const minute = m[5] === undefined ? 0 : Number(m[5]);
+  if (month < 1 || month > 12 || day < 1 || day > 31 || hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+    return null;
+  }
+  return `${m[1]}-${m[2]}-${m[3]}T${m[4]}:00`;
 }
 
 /**
  * Danh sách giờ của cửa sổ, BAO GỒM cả hai đầu, bước 1 giờ.
  * Dùng số học UTC trên lịch tường (cùng phong cách hourDiff trong ./time) nên
  * cửa sổ vượt qua nửa đêm vẫn liệt kê đúng ngày kế tiếp.
+ *
+ * ĐÂY LÀ NƠI DUY NHẤT dựng danh sách giờ, nên cũng là nơi DUY NHẤT chặn trần:
+ * cửa sổ dài hơn MAX_WINDOW_SPAN_HOURS bị cắt còn tối đa MAX_WINDOW_SPAN_HOURS + 1 mốc.
+ * Khoảng đảo ngược trả về [] (không có giờ nào).
  */
 export function windowHours(from: string, to: string): string[] {
   const start = parseHour(from);
   const end = parseHour(to);
   if (start === null || end === null || end < start) return [];
+  const cap = start + MAX_WINDOW_SPAN_HOURS * 3600000;
   const hours: string[] = [];
-  for (let ms = start; ms <= end; ms += 3600000) hours.push(formatHour(ms));
+  for (let ms = start; ms <= end && ms <= cap; ms += 3600000) hours.push(formatHour(ms));
   return hours;
 }
 
@@ -137,15 +158,24 @@ export function windowFromParams(
   params: URLSearchParams,
   nowLocal: string,
 ): { from: string; to: string; source: WindowSource } {
-  const from = params.get("from");
-  const to = params.get("to");
-  if (from !== null && to !== null) {
-    return { from: normalizeHour(from), to: normalizeHour(to), source: "range" };
+  const fromRaw = params.get("from");
+  const toRaw = params.get("to");
+  if (fromRaw !== null && toRaw !== null) {
+    // Chỉ nhận cửa sổ hợp lệ: đúng định dạng, không đảo ngược, không dài quá trần.
+    // Tham số xấu rơi tiếp xuống nhánh `at`/mặc định, KHÔNG bao giờ tạo cửa sổ rác.
+    const from = normalizeHour(fromRaw);
+    const to = normalizeHour(toRaw);
+    if (from !== null && to !== null) {
+      const span = hourDiff(to, from);
+      if (Number.isFinite(span) && span >= 0 && span <= MAX_WINDOW_SPAN_HOURS) {
+        return { from, to, source: "range" };
+      }
+    }
   }
-  const at = params.get("at");
-  if (at !== null) {
-    const hour = normalizeHour(at);
-    return { from: hour, to: hour, source: "at" };
+  const atRaw = params.get("at");
+  if (atRaw !== null) {
+    const hour = normalizeHour(atRaw);
+    if (hour !== null) return { from: hour, to: hour, source: "at" };
   }
   const fallback = defaultWindow(nowLocal);
   return { from: fallback.from, to: fallback.to, source: "default" };

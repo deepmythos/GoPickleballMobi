@@ -8,12 +8,13 @@ import {
   type MessageKey,
 } from "../i18n";
 import { FACTOR_META } from "../scoring";
+import { solarPosition } from "../sun";
 import { APP_TIMEZONE, formatLocalISO, formatUtcOffset, getOffsetMinutes, zonedToUtc } from "../time";
 import { midpointHourOf } from "../window";
 import { BUILD_ID, BUILD_TIME } from "../build";
 import type { Lang } from "../types";
 import { unitText } from "../units";
-import { compassSector, courtDiagram, rotateCourtDiagram } from "./court-diagram";
+import { compassSector, courtDiagram, rotateCourtDiagram, updateCourtDiagramSun } from "./court-diagram";
 import { renderHourRange } from "./hour-range";
 import { dragVisual, isSheetOpen, type SheetPanel } from "./sheet";
 import { factorIcon, gateIcon, makeIcon, ICONS } from "./icons";
@@ -853,13 +854,49 @@ function renderInputsSheet(state: AppState, actions: Actions): HTMLElement[] {
   });
   const ev = state.evaluation;
   const compassKey = (deg: number): MessageKey => MSG(`compass.${compassSector(deg)}`);
+  const hourLabel = (iso: string): string => formatClock(lang, iso);
+
+  interface SunPoint {
+    azimuth: number;
+    elevation: number;
+    label: string;
+  }
+  interface SunRangeView {
+    start: SunPoint;
+    end: SunPoint;
+    midpoint: string;
+  }
+  // Khoảng mặt trời vẽ được chỉ khi cửa sổ THẬT SỰ dài hơn một giờ (nếu không, cửa sổ
+  // suy biến vẫn dùng một mặt trời như cũ). Phương vị tính bằng solarPosition + zonedToUtc.
+  const rangeViewFor = (fromHour: string, toHour: string): SunRangeView | null => {
+    if (fromHour === toHour) return null;
+    const start = solarPosition(zonedToUtc(fromHour, APP_TIMEZONE), state.location.lat, state.location.lon);
+    const end = solarPosition(zonedToUtc(toHour, APP_TIMEZONE), state.location.lat, state.location.lon);
+    return {
+      start: { azimuth: start.azimuth, elevation: start.elevation, label: hourLabel(fromHour) },
+      end: { azimuth: end.azimuth, elevation: end.elevation, label: hourLabel(toHour) },
+      midpoint: hourLabel(midpointHourOf(fromHour, toHour)),
+    };
+  };
+  const initialRange = ev ? rangeViewFor(ev.range.from, ev.range.to) : null;
   // Nhãn aria dựng từ i18n; phương vị/cao độ lấy nguyên từ evaluation.sun, không tính lại.
-  const diagramLabelFor = (bearing: number): string => {
+  const diagramLabelFor = (bearing: number, range: SunRangeView | null): string => {
     const axis = Math.round(((bearing % 360) + 360) % 360) % 360;
     const axisDir = t(lang, compassKey(bearing));
     if (!ev) return t(lang, "court.diagramLabelUnknown", { axis, axisDir });
     if (ev.point.is_day === 0 || ev.sun.elevation <= 0) {
       return t(lang, "court.diagramLabelNight", { axis, axisDir });
+    }
+    if (range) {
+      return t(lang, "court.diagramLabelRange", {
+        axis,
+        axisDir,
+        start: range.start.label,
+        end: range.end.label,
+        sunStart: Math.round(range.start.azimuth),
+        sunEnd: Math.round(range.end.azimuth),
+        midpoint: range.midpoint,
+      });
     }
     return t(lang, "court.diagramLabel", {
       axis,
@@ -873,12 +910,21 @@ function renderInputsSheet(state: AppState, actions: Actions): HTMLElement[] {
   const courtSvg = courtDiagram({
     bearing: state.courtBearing,
     sun: ev ? { azimuth: ev.sun.azimuth, elevation: ev.sun.elevation } : null,
+    sunRange: initialRange ? { start: initialRange.start, end: initialRange.end } : null,
     isDay: ev ? ev.point.is_day !== 0 : undefined,
     variant: "full",
-    ariaLabel: diagramLabelFor(state.courtBearing),
+    ariaLabel: diagramLabelFor(state.courtBearing, initialRange),
     northLabel: t(lang, "compass.n"),
     noSunLabel: t(lang, "court.diagramNoSun"),
   });
+
+  // Kéo tay nắm khoảng giờ -> vẽ lại phần mặt trời NGAY TẠI CHỖ như thanh trượt bearing,
+  // rồi mới cập nhật nhãn. Không render lại app giữa cử chỉ.
+  const previewRange = (fromHour: string, toHour: string): void => {
+    const range = rangeViewFor(fromHour, toHour);
+    updateCourtDiagramSun(courtSvg, range ? { start: range.start, end: range.end } : null);
+    courtSvg.setAttribute("aria-label", diagramLabelFor(state.courtBearing, range));
+  };
   return [
     // Khối phiên bản đứng ĐẦU sheet (ngay sau h2.sheet-title) để luôn thấy mà không phải cuộn.
     renderBuildBlock(state, actions),
@@ -886,13 +932,14 @@ function renderInputsSheet(state: AppState, actions: Actions): HTMLElement[] {
       "div",
       { class: "setting-block" },
       h("span", { class: "field-label", text: t(lang, "time.title") }),
-      renderHourRange(state, actions),
+      renderHourRange(state, actions, previewRange),
       h("p", {
         class: "sheet-note",
         text: t(lang, "time.midpointNote", {
           hour: formatClock(
             lang,
-            state.evaluation?.range.midpointHour ??
+            state.evaluation?.detailHour ??
+              state.evaluation?.range.midpointHour ??
               midpointHourOf(state.targetHour, state.toHour ?? state.targetHour),
           ),
         }),
@@ -923,7 +970,7 @@ function renderInputsSheet(state: AppState, actions: Actions): HTMLElement[] {
           oninput: (e: Event) => {
             const value = Number((e.target as HTMLInputElement).value);
             bearingValue.textContent = `${formatNumber(lang, value)}${t(lang, "unit.deg")}`;
-            rotateCourtDiagram(courtSvg, value, diagramLabelFor(value));
+            rotateCourtDiagram(courtSvg, value, diagramLabelFor(value, initialRange));
           },
           onchange: (e: Event) => actions.setBearing(Number((e.target as HTMLInputElement).value)),
           onfocus: focusScroll,

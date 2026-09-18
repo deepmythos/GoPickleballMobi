@@ -34,7 +34,6 @@ export const de: Dict = {
   "location.defaultName": "Pickleball-Plätze, Offenthaler Straße, Dietzenbach",
 
   "time.title": "Datum und Uhrzeit",
-  "time.label": "Datum und Uhrzeit wählen",
   "time.rangeLabel": "Zeitraum",
   "time.from": "Von",
   "time.to": "Bis",
@@ -49,6 +48,7 @@ export const de: Dict = {
   "court.title": "Platzausrichtung und Licht",
   "court.bearing": "Ausrichtung der Längsachse",
   "court.diagramLabel": "Platz von oben, maßstabsgetreu. Längsachse {axis}° ({axisDir}). Sonne bei {sun}° ({sunDir}), {alt}° über dem Horizont, der Schatten fällt nach {shadowDir}.",
+  "court.diagramLabelRange": "Platz von oben, maßstabsgetreu. Längsachse {axis}° ({axisDir}). Die Sonne wandert von {start} nach {end} im Uhrzeigersinn (Azimut {sunStart}° → {sunEnd}°). Der Schatten gilt für die Mitte des Zeitraums: {midpoint}.",
   "court.diagramLabelNight": "Platz von oben, maßstabsgetreu. Längsachse {axis}° ({axisDir}). Keine Sonne — es ist dunkel, daher kein Schatten.",
   "court.diagramLabelUnknown": "Platz von oben, maßstabsgetreu. Längsachse {axis}° ({axisDir}). Sonnenstand unbekannt.",
   "court.diagramNoSun": "Keine Sonne",

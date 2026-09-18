@@ -34,7 +34,6 @@ export const en: Dict = {
   "location.defaultName": "Pickleball-Plätze, Offenthaler Straße, Dietzenbach",
 
   "time.title": "Date and time",
-  "time.label": "Choose date and time",
   "time.rangeLabel": "Time range",
   "time.from": "From",
   "time.to": "To",
@@ -49,6 +48,7 @@ export const en: Dict = {
   "court.title": "Court orientation and light",
   "court.bearing": "Long-axis bearing",
   "court.diagramLabel": "Top-down court to scale. Long axis {axis}° ({axisDir}). Sun at {sun}° ({sunDir}), {alt}° above the horizon, so the shadow falls {shadowDir}.",
+  "court.diagramLabelRange": "Top-down court to scale. Long axis {axis}° ({axisDir}). The sun moves from {start} to {end} clockwise (azimuth {sunStart}° → {sunEnd}°). The shadow is drawn for the midpoint hour {midpoint}.",
   "court.diagramLabelNight": "Top-down court to scale. Long axis {axis}° ({axisDir}). No sun — it is dark, so no shadow is drawn.",
   "court.diagramLabelUnknown": "Top-down court to scale. Long axis {axis}° ({axisDir}). Sun position unknown.",
   "court.diagramNoSun": "No sun",

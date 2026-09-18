@@ -71,10 +71,14 @@ function verdictLabel(lang: Lang, verdict: VerdictLabel): string {
  * một input[type=date].input (ngày của from), hai input[type=range].hour-range-handle
  * (data-handle from/to, 0..24), nhãn .hour-range-value, .hour-range-span và .hour-range-score.
  *
- * `oninput` cập nhật nhãn/caption TẠI CHỖ (không render lại app — ticket sau còn vẽ lại
- * hình sân ở đây); `onchange` mới chốt cửa sổ qua actions.setHourRange() và re-evaluate.
+ * `oninput` cập nhật nhãn/caption TẠI CHỖ (không render lại app), gọi `preview` để nơi gọi
+ * vẽ lại hình sân ngay khi kéo; `onchange` mới chốt cửa sổ qua actions.setHourRange() và re-evaluate.
  */
-export function renderHourRange(state: AppState, actions: Actions): HTMLElement {
+export function renderHourRange(
+  state: AppState,
+  actions: Actions,
+  preview?: (fromHour: string, toHour: string) => void,
+): HTMLElement {
   const lang = state.lang;
   const from = state.targetHour;
   const to = state.toHour ?? state.targetHour;
@@ -99,6 +103,19 @@ export function renderHourRange(state: AppState, actions: Actions): HTMLElement 
     });
   };
 
+  // Ghi CẢ giá trị hiển thị lẫn aria-valuetext cho CẢ HAI tay nắm, để khi tay này bị kẹp
+  // theo tay kia thì chữ hiển thị không bao giờ mâu thuẫn với vị trí thật của tay nắm.
+  const syncHandles = (): void => {
+    for (const [handle, value] of [
+      [fromSlider, fromValue],
+      [toSlider, toValue],
+    ] as const) {
+      (handle as HTMLInputElement).value = String(value);
+      handle.setAttribute("value", String(value));
+      handle.setAttribute("aria-valuetext", clockText(value));
+    }
+  };
+
   const range = state.evaluation?.range;
   scoreText.textContent = t(lang, "time.rangeScore", {
     score: range && range.score !== null ? formatNumber(lang, range.score) : t(lang, "common.none"),
@@ -121,11 +138,9 @@ export function renderHourRange(state: AppState, actions: Actions): HTMLElement 
   fromSlider.addEventListener("input", (event: Event) => {
     fromValue = Number((event.target as HTMLInputElement).value);
     if (toValue < fromValue) toValue = fromValue;
-    fromSlider.setAttribute("aria-valuetext", clockText(fromValue));
+    syncHandles();
+    preview?.(combine(day, fromValue), combine(day, toValue));
     refresh();
-  });
-  fromSlider.addEventListener("change", () => {
-    actions.setHourRange(combine(day, fromValue), combine(day, toValue));
   });
 
   const toSlider = el("input", {
@@ -142,12 +157,17 @@ export function renderHourRange(state: AppState, actions: Actions): HTMLElement 
   toSlider.addEventListener("input", (event: Event) => {
     toValue = Number((event.target as HTMLInputElement).value);
     if (toValue < fromValue) fromValue = toValue;
-    toSlider.setAttribute("aria-valuetext", clockText(toValue));
+    syncHandles();
+    preview?.(combine(day, fromValue), combine(day, toValue));
     refresh();
   });
-  toSlider.addEventListener("change", () => {
+
+  // Một chỗ DUY NHẤT chốt cửa sổ cho cả hai tay nắm.
+  const commit = (): void => {
     actions.setHourRange(combine(day, fromValue), combine(day, toValue));
-  });
+  };
+  fromSlider.addEventListener("change", commit);
+  toSlider.addEventListener("change", commit);
 
   const dateInput = el("input", {
     type: "date",

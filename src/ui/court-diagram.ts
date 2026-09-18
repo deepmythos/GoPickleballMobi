@@ -31,11 +31,29 @@ const SHADOW_MAX_COMPACT = 70;
 
 export type CourtDiagramVariant = "full" | "compact";
 
+/** Một đầu của khoảng mặt trời: phương vị/cao độ + nhãn giờ caller đã dịch. */
+export interface CourtDiagramSunPoint {
+  azimuth: number;
+  elevation: number;
+  label: string;
+}
+
+export interface CourtDiagramSunRange {
+  start: CourtDiagramSunPoint;
+  end: CourtDiagramSunPoint;
+}
+
 export interface CourtDiagramInput {
   /** Hướng trục dài sân, độ, thuận chiều kim đồng hồ tính từ Bắc. */
   bearing: number;
   /** LẤY TỪ evaluation.sun; null = chưa biết. */
   sun: { azimuth: number; elevation: number } | null;
+  /**
+   * Khoảng mặt trời (evaluation.sunStart -> evaluation.sunEnd) để vẽ HAI mặt trời + cung
+   * chuyển động. Chỉ có tác dụng khi `sun` (giờ giữa) là ban ngày; ban đêm/chưa biết giữ
+   * nguyên hành vi cũ (mặt trăng / không vẽ gì).
+   */
+  sunRange?: CourtDiagramSunRange | null;
   /** = evaluation.point.is_day !== 0. */
   isDay?: boolean;
   /** Mặc định "full". */
@@ -132,6 +150,9 @@ const DIAGRAM_STYLE = [
   ".cd-north{fill:var(--muted);font-size:11px;font-weight:600}",
   ".cd-sun-core{fill:var(--maybe)}",
   ".cd-sun-ray{stroke:var(--maybe);stroke-width:1.6}",
+  ".cd-sun-hour{fill:var(--text);font-size:10px;font-weight:600}",
+  ".cd-sun-arc{fill:none;stroke:var(--maybe);stroke-width:1.6;stroke-dasharray:4 4}",
+  ".cd-sun-arc-head{fill:var(--maybe)}",
   ".cd-arrow{stroke:var(--muted);stroke-width:1.4}",
   ".cd-arrow-head{fill:var(--muted)}",
   ".cd-moon{fill:var(--muted)}",
@@ -141,6 +162,8 @@ const DIAGRAM_STYLE = [
 
 interface Registered {
   redraw: (bearing: number, ariaLabel?: string) => void;
+  /** Vẽ lại phần mặt trời tại chỗ khi khoảng giờ đổi (không render lại app). */
+  redrawSun: (sunRange: CourtDiagramSunRange | null | undefined) => void;
 }
 
 // Tham chiếu nội bộ để xoay lại mà không cần querySelector (test node dựng DOM giả).
@@ -188,6 +211,132 @@ function buildLightArrow(): SVGElement {
     y2: -(SUN_DIST - 27),
   });
   return el("g", {}, shaft, head);
+}
+
+/** Điểm trên vòng bán kính `radius` tại phương vị `azimuth` (0° = Bắc/trên, thuận chiều kim đồng hồ). */
+function polarPoint(azimuth: number, radius: number): { x: number; y: number } {
+  const a = (azimuth * Math.PI) / 180;
+  return { x: radius * Math.sin(a), y: -radius * Math.cos(a) };
+}
+
+/** Cung phương vị TĂNG dần (azimuth lớn dần = thuận chiều kim đồng hồ khi Bắc ở trên). */
+function increasingSweep(startAzimuth: number, endAzimuth: number): number {
+  return (((endAzimuth - startAzimuth) % 360) + 360) % 360;
+}
+
+/** Một mặt trời của khoảng, kèm nhãn giờ nằm ngang (xoay bù -azimuth để chữ không nghiêng). */
+function buildRangeSunGlyph(point: CourtDiagramSunPoint): SVGElement {
+  const group = el("g", { transform: `rotate(${point.azimuth} 0 0)` });
+  group.appendChild(buildSunGlyph());
+  group.appendChild(
+    el(
+      "text",
+      {
+        class: "cd-sun-hour",
+        transform: `translate(0 ${-(SUN_DIST - 26)}) rotate(${-point.azimuth})`,
+        "text-anchor": "middle",
+      },
+      point.label,
+    ),
+  );
+  return group;
+}
+
+/**
+ * Cung nối hai mặt trời theo chiều phương vị TĂNG, kèm đầu mũi tên tiếp tuyến ở CUỐI cung.
+ * `sweep-flag = 1` (chiều dương SVG = thuận chiều kim đồng hồ với trục y hướng xuống).
+ */
+function buildSunArc(range: CourtDiagramSunRange): SVGElement | null {
+  const sweep = increasingSweep(range.start.azimuth, range.end.azimuth);
+  if (sweep <= 0.001) return null;
+  const start = polarPoint(range.start.azimuth, SUN_DIST);
+  const end = polarPoint(range.end.azimuth, SUN_DIST);
+  const largeArc = sweep > 180 ? 1 : 0;
+  const group = el("g", { "data-sun-arc-group": "1" });
+  group.appendChild(
+    el("path", {
+      class: "cd-sun-arc",
+      d: `M ${start.x.toFixed(2)} ${start.y.toFixed(2)} A ${SUN_DIST} ${SUN_DIST} 0 ${largeArc} 1 ${end.x.toFixed(2)} ${end.y.toFixed(2)}`,
+      "data-sun-arc-start": range.start.azimuth,
+      "data-sun-arc-end": range.end.azimuth,
+      "data-sun-arc-sweep": "1",
+    }),
+  );
+  // Đầu mũi tên tại điểm cuối, tiếp tuyến theo hướng phương vị tăng dần.
+  const a = (range.end.azimuth * Math.PI) / 180;
+  const tangent = { x: Math.cos(a), y: Math.sin(a) };
+  const normal = { x: -Math.sin(a), y: Math.cos(a) };
+  const head = 12;
+  const half = 5;
+  const tip = { x: end.x + (tangent.x * head) / 2, y: end.y + (tangent.y * head) / 2 };
+  const b1 = {
+    x: end.x - (tangent.x * head) / 2 + normal.x * half,
+    y: end.y - (tangent.y * head) / 2 + normal.y * half,
+  };
+  const b2 = {
+    x: end.x - (tangent.x * head) / 2 - normal.x * half,
+    y: end.y - (tangent.y * head) / 2 - normal.y * half,
+  };
+  group.appendChild(
+    el("polygon", {
+      class: "cd-sun-arc-head",
+      points: `${tip.x.toFixed(2)},${tip.y.toFixed(2)} ${b1.x.toFixed(2)},${b1.y.toFixed(2)} ${b2.x.toFixed(2)},${b2.y.toFixed(2)}`,
+    }),
+  );
+  return group;
+}
+
+/** Ghi/ghi đè các thuộc tính mô tả cung lên <svg>. */
+function markSunRange(svg: SVGElement, range: CourtDiagramSunRange | null): void {
+  if (!range) return;
+  svg.setAttribute("data-sun-azimuth-start", String(range.start.azimuth));
+  svg.setAttribute("data-sun-azimuth-end", String(range.end.azimuth));
+  svg.setAttribute("data-sun-arc-start", String(range.start.azimuth));
+  svg.setAttribute("data-sun-arc-end", String(range.end.azimuth));
+  svg.setAttribute("data-sun-arc-sweep", "1");
+}
+
+/**
+ * Lớp mặt trời/mặt trăng. Ban ngày + có khoảng -> hai mặt trời + cung; ngược lại giữ
+ * nguyên một mặt trời/mặt trăng như trước. Bóng KHÔNG nằm ở đây: nó vẽ riêng cho giờ giữa.
+ */
+function buildSunLayer(
+  state: SunState,
+  sun: { azimuth: number; elevation: number } | null,
+  sunRange: CourtDiagramSunRange | null,
+  noSunLabel?: string,
+): SVGElement {
+  const layer = el("g", { "data-sun-layer": "1" });
+  if (state === "unknown" || !sun) return layer;
+  if (state === "day" && sunRange) {
+    const arc = buildSunArc(sunRange);
+    if (arc) layer.appendChild(arc);
+    layer.appendChild(buildRangeSunGlyph(sunRange.start));
+    layer.appendChild(buildRangeSunGlyph(sunRange.end));
+    return layer;
+  }
+  const sunRotor = el("g", { "data-sun-rotor": "1", transform: `rotate(${sun.azimuth} 0 0)` });
+  if (state === "day") {
+    sunRotor.appendChild(buildSunGlyph());
+    sunRotor.appendChild(buildLightArrow());
+  } else {
+    sunRotor.appendChild(buildMoonGlyph());
+    if (noSunLabel) {
+      sunRotor.appendChild(
+        el(
+          "text",
+          {
+            class: "cd-label",
+            transform: `translate(0 ${-(SUN_DIST - 26)}) rotate(${-sun.azimuth})`,
+            "text-anchor": "middle",
+          },
+          noSunLabel,
+        ),
+      );
+    }
+  }
+  layer.appendChild(sunRotor);
+  return layer;
 }
 
 export function courtDiagram(input: CourtDiagramInput): SVGElement {
@@ -272,29 +421,13 @@ export function courtDiagram(input: CourtDiagramInput): SVGElement {
   }
   svg.appendChild(rotor);
 
-  // Glyph mặt trời/mặt trăng + mũi tên sáng, xoay theo phương vị (0° = Bắc).
+  // Glyph mặt trời/mặt trăng + mũi tên sáng. Khi có KHOẢNG và giờ giữa là ban ngày thì
+  // vẽ hai mặt trời + cung chuyển động; ban đêm/chưa biết giữ nguyên hành vi cũ
+  // (mặt trăng kèm nhãn `noSunLabel` / không vẽ gì). Bóng vẫn chỉ vẽ MỘT bộ cho giờ giữa.
+  const sunLayer = buildSunLayer(state, sun, state === "day" ? (input.sunRange ?? null) : null, input.noSunLabel);
   if (state !== "unknown" && sun) {
-    const sunRotor = el("g", { "data-sun-rotor": "1", transform: `rotate(${sun.azimuth} 0 0)` });
-    if (state === "day") {
-      sunRotor.appendChild(buildSunGlyph());
-      sunRotor.appendChild(buildLightArrow());
-    } else {
-      sunRotor.appendChild(buildMoonGlyph());
-      if (input.noSunLabel) {
-        sunRotor.appendChild(
-          el(
-            "text",
-            {
-              class: "cd-label",
-              transform: `translate(0 ${-(SUN_DIST - 26)}) rotate(${-sun.azimuth})`,
-              "text-anchor": "middle",
-            },
-            input.noSunLabel,
-          ),
-        );
-      }
-    }
-    svg.appendChild(sunRotor);
+    svg.appendChild(sunLayer);
+    if (state === "day" && input.sunRange) markSunRange(svg, input.sunRange);
   }
 
   const redraw = (bearing: number, ariaLabel?: string): void => {
@@ -307,11 +440,40 @@ export function courtDiagram(input: CourtDiagramInput): SVGElement {
       svg.setAttribute("data-shadow-depth-m", shadowDepth(vector.deltaPx));
     }
   };
-  registry.set(svg, { redraw });
+
+  // Cập nhật TẠI CHỖ phần mặt trời khi khoảng giờ đổi: xoá lớp cũ rồi dựng lại đúng
+  // logic lúc render đầu. Chỉ làm khi giờ giữa là ban ngày (ban đêm giữ mặt trăng).
+  const redrawSun = (sunRange: CourtDiagramSunRange | null | undefined): void => {
+    if (state !== "day" || !sun) return;
+    sunLayer.textContent = "";
+    if (sunRange) {
+      const arc = buildSunArc(sunRange);
+      if (arc) sunLayer.appendChild(arc);
+      sunLayer.appendChild(buildRangeSunGlyph(sunRange.start));
+      sunLayer.appendChild(buildRangeSunGlyph(sunRange.end));
+      markSunRange(svg, sunRange);
+      return;
+    }
+    const sunRotor = el("g", { "data-sun-rotor": "1", transform: `rotate(${sun.azimuth} 0 0)` });
+    sunRotor.appendChild(buildSunGlyph());
+    sunRotor.appendChild(buildLightArrow());
+    sunLayer.appendChild(sunRotor);
+  };
+
+  registry.set(svg, { redraw, redrawSun });
   return svg;
 }
 
 /** Xoay hình ngay khi kéo thanh trượt — cập nhật tại chỗ, không render lại app. */
 export function rotateCourtDiagram(svg: SVGElement, bearing: number, ariaLabel?: string): void {
   registry.get(svg)?.redraw(bearing, ariaLabel);
+}
+
+/**
+ * Vẽ lại RIÊNG phần mặt trời (hai mặt trời + cung) tại chỗ khi khoảng giờ đổi, ví dụ
+ * lúc kéo tay nắm — cùng cơ chế registry/updater với `rotateCourtDiagram`. Việc xoay
+ * theo bearing và việc đổi khoảng giờ độc lập nhau nên hai updater cùng tồn tại.
+ */
+export function updateCourtDiagramSun(svg: SVGElement, sunRange: CourtDiagramSunRange | null): void {
+  registry.get(svg)?.redrawSun(sunRange);
 }

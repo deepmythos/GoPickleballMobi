@@ -42,6 +42,8 @@ interface WindowVerdict {
   score: number | null;
   verdict: string | null;
   localTime: string;
+  /** Giờ mà khối point/factors/sun thực sự thuộc về (có thể khác giờ giữa khoảng). */
+  detailHour: string;
   utcOffsetMinutes: number;
   location: { lat: number; lon: number; name: string };
   factors: { id: string; value: number; unit: string; impact: number }[];
@@ -53,6 +55,18 @@ interface WindowVerdict {
   rain3h?: number | null;
   rainWindowHours?: number;
   stale?: boolean;
+  /** Chi tiết cửa sổ giờ: trung bình cộng, từng giờ, giờ thiếu, giờ giữa. */
+  range?: {
+    from: string;
+    to: string;
+    spanHours: number;
+    midpointHour: string;
+    hours: { hour: string; score: number; verdict: string }[];
+    score: number | null;
+    verdict: string | null;
+    countedHours: number;
+    missingHours: string[];
+  };
 }
 
 declare global {
@@ -229,6 +243,7 @@ function start(): void {
       score: ev.score,
       verdict: ev.verdict,
       localTime: ev.localTime,
+      detailHour: ev.localTime,
       utcOffsetMinutes: ev.utcOffsetMinutes,
       location: {
         lat: state.location.lat,
@@ -246,6 +261,17 @@ function start(): void {
       rain3h: ev.rain3h,
       rainWindowHours: RAIN_WINDOW_HOURS,
       stale: state.stale,
+      range: {
+        from: ev.range.from,
+        to: ev.range.to,
+        spanHours: ev.range.spanHours,
+        midpointHour: ev.range.midpointHour,
+        hours: ev.range.hours.map((h) => ({ hour: h.hour, score: h.score, verdict: h.verdict })),
+        score: ev.range.score,
+        verdict: ev.range.verdict,
+        countedHours: ev.range.countedHours,
+        missingHours: ev.range.missingHours,
+      },
     };
   }
 
@@ -254,6 +280,7 @@ function start(): void {
       score: null,
       verdict: null,
       localTime: state.targetHour,
+      detailHour: state.targetHour,
       utcOffsetMinutes: 0,
       location: {
         lat: state.location.lat,
@@ -302,6 +329,27 @@ function start(): void {
       state.error = message;
       publishError(message);
     }
+  }
+
+  /**
+   * Trình tự DUY NHẤT khi chốt một cửa sổ giờ: validate -> gán state -> URL -> tính lại.
+   * Trả về true khi áp dụng được; khi lỗi đã đặt applyErrorKey và render().
+   */
+  function applyRange(fromValue: string, toValue: string): boolean {
+    const result = validateRangeInput(fromValue, toValue);
+    if (!result.ok) {
+      state.applyErrorKey = result.errorKey;
+      render();
+      return false;
+    }
+    state.applyErrorKey = null;
+    state.targetHour = result.from;
+    state.toHour = result.to;
+    state.atInput = result.from;
+    state.toInput = result.to;
+    updateUrl();
+    recompute();
+    return true;
   }
 
   async function loadData(): Promise<void> {
@@ -525,44 +573,14 @@ function start(): void {
         { enableHighAccuracy: false, timeout: 10000 },
       );
     },
-    setFromInput(value) {
-      state.atInput = value;
-    },
-    setToInput(value) {
-      state.toInput = value;
-    },
     setHourRange(from, to) {
-      const result = validateRangeInput(from, to);
-      if (!result.ok) {
-        state.applyErrorKey = result.errorKey;
-        render();
-        return;
-      }
-      state.applyErrorKey = null;
-      state.targetHour = result.from;
-      state.toHour = result.to;
-      state.atInput = result.from;
-      state.toInput = result.to;
-      updateUrl();
-      recompute();
-      render();
+      if (applyRange(from, to)) render();
     },
     applyTime() {
       // Khoảng nhập từ bộ chọn: nếu thiếu `to` thì coi như cửa sổ suy biến một giờ.
-      const result = validateRangeInput(state.atInput, state.toInput ?? state.atInput);
-      if (!result.ok) {
-        state.applyErrorKey = result.errorKey;
-        render();
-        return;
+      if (applyRange(state.atInput, state.toInput ?? state.atInput)) {
+        runSheetActions({ type: "close" });
       }
-      state.applyErrorKey = null;
-      state.targetHour = result.from;
-      state.toHour = result.to;
-      state.atInput = result.from;
-      state.toInput = result.to;
-      updateUrl();
-      recompute();
-      runSheetActions({ type: "close" });
     },
     refresh() {
       void loadData();

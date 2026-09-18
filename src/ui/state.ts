@@ -77,8 +77,6 @@ export interface Actions {
   patchDraft: (patch: Partial<GeoLocation>) => void;
   applyLocation: () => void;
   locateMe: () => void;
-  setFromInput: (value: string) => void;
-  setToInput: (value: string) => void;
   setHourRange: (from: string, to: string) => void;
   applyTime: () => void;
   refresh: () => void;

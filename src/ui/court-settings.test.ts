@@ -129,8 +129,11 @@ function makeEvaluation(sun: { azimuth: number; elevation: number }, isDay = 1):
     targetHour: TARGET_HOUR,
     utcOffsetMinutes: 120,
     localTime: TARGET_HOUR,
+    detailHour: TARGET_HOUR,
     point: makePoint({ is_day: isDay }),
     sun,
+    sunStart: sun,
+    sunEnd: sun,
     score: 80,
     verdict: "Nên đi",
     range: {

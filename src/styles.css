@@ -1371,7 +1371,8 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* Bộ chọn khoảng giờ: hai tay nắm 44×44 px, đủ lớn để kéo bằng một ngón. */
+/* Bộ chọn khoảng giờ: hai tay nắm 44×44 px, đủ lớn để kéo bằng một ngón.
+   Phải TẮT giao diện gốc của range thì kích thước thumb mới có tác dụng trên Chromium. */
 .hour-range {
   display: flex;
   flex-direction: column;
@@ -1387,17 +1388,52 @@ body {
 .hour-range-handle {
   flex: 1;
   height: 44px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
   accent-color: var(--good);
 }
 
+.hour-range-handle::-webkit-slider-runnable-track {
+  height: 44px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(
+    to bottom,
+    transparent calc(50% - 2px),
+    var(--border) calc(50% - 2px),
+    var(--border) calc(50% + 2px),
+    transparent calc(50% + 2px)
+  );
+}
+
+.hour-range-handle::-moz-range-track {
+  height: 44px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(
+    to bottom,
+    transparent calc(50% - 2px),
+    var(--border) calc(50% - 2px),
+    var(--border) calc(50% + 2px),
+    transparent calc(50% + 2px)
+  );
+}
+
 .hour-range-handle::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
   width: 44px;
   height: 44px;
+  border: none;
+  border-radius: 50%;
+  background: var(--good);
 }
 
 .hour-range-handle::-moz-range-thumb {
   width: 44px;
   height: 44px;
+  border: none;
+  border-radius: 50%;
+  background: var(--good);
 }
 
 .hour-range-value {

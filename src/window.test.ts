@@ -13,6 +13,7 @@ import {
   aggregateWindow,
   DEFAULT_SPAN_HOURS,
   defaultWindow,
+  MAX_WINDOW_SPAN_HOURS,
   midpointHourOf,
   windowFromParams,
   windowHours,
@@ -143,8 +144,11 @@ function makeEvaluation(): Evaluation {
     targetHour: TARGET,
     utcOffsetMinutes: 120,
     localTime: range.midpointHour,
+    detailHour: range.midpointHour,
     point: makePoint(),
     sun: { azimuth: 180, elevation: 40 },
+    sunStart: { azimuth: 170, elevation: 42 },
+    sunEnd: { azimuth: 190, elevation: 38 },
     score: range.score ?? 0,
     verdict: range.verdict ?? "Cân nhắc",
     range,
@@ -435,5 +439,58 @@ describe("window — cửa sổ giờ và trung bình cộng", () => {
       "20:00",
       "20:00",
     ]);
+  });
+});
+
+describe("window — hardening biên (R1/R2)", () => {
+  it("R1: windowHours bị chặn trần, không sinh hàng triệu mốc giờ", () => {
+    const hours = windowHours("2026-09-18T00:00", "9999-12-31T00:00");
+    console.log(`[window] clamped span -> ${hours.length} entries (cap ${MAX_WINDOW_SPAN_HOURS + 1})`);
+    expect(MAX_WINDOW_SPAN_HOURS).toBe(24);
+    expect(hours.length).toBeLessThanOrEqual(MAX_WINDOW_SPAN_HOURS + 1);
+    expect(hours.length).toBe(MAX_WINDOW_SPAN_HOURS + 1);
+    expect(hours[0]).toBe("2026-09-18T00:00");
+    expect(hours[hours.length - 1]).toBe("2026-09-19T00:00");
+  });
+
+  it("R1: aggregateWindow cũng chỉ xét tối đa MAX+1 mốc", () => {
+    const range = aggregateWindow("2026-09-18T00:00", "9999-12-31T00:00", []);
+    expect(range.hours.length + range.missingHours.length).toBeLessThanOrEqual(
+      MAX_WINDOW_SPAN_HOURS + 1,
+    );
+  });
+
+  it("R2: from/to sai định dạng rơi về mặc định, không tạo cửa sổ rác", () => {
+    const now = "2026-09-18T13:37";
+    const dateOnly = windowFromParams(new URLSearchParams("from=2026-09-18&to=2026-09-18"), now);
+    expect(dateOnly).toEqual({ from: "2026-09-18T14:00", to: "2026-09-18T16:00", source: "default" });
+    const garbage = windowFromParams(new URLSearchParams("from=abc&to=def"), now);
+    expect(garbage.source).toBe("default");
+    // Không bao giờ ném lỗi.
+    expect(() => windowFromParams(new URLSearchParams("from=2026-09-18&to=abc"), now)).not.toThrow();
+  });
+
+  it("R2: from/to đảo ngược hoặc quá dài rơi về at rồi mặc định; precedence giữ nguyên", () => {
+    const now = "2026-09-18T13:37";
+    const reversed = windowFromParams(
+      new URLSearchParams("from=2026-09-18T18:00&to=2026-09-18T16:00"),
+      now,
+    );
+    expect(reversed.source).toBe("default");
+    const tooLong = windowFromParams(
+      new URLSearchParams("from=2026-09-18T00:00&to=2030-01-01T00:00"),
+      now,
+    );
+    expect(tooLong.source).toBe("default");
+    const withAt = windowFromParams(
+      new URLSearchParams("from=abc&to=def&at=2026-09-18T16:00"),
+      now,
+    );
+    expect(withAt).toEqual({ from: "2026-09-18T16:00", to: "2026-09-18T16:00", source: "at" });
+    const rangeOK = windowFromParams(
+      new URLSearchParams("from=2026-09-18T14:00&to=2026-09-18T16:00"),
+      now,
+    );
+    expect(rangeOK).toEqual({ from: "2026-09-18T14:00", to: "2026-09-18T16:00", source: "range" });
   });
 });
