@@ -232,11 +232,32 @@ body {
   gap: var(--space-1);
   padding-top: max(env(safe-area-inset-top), var(--space-2));
   padding-bottom: var(--space-2);
+  /* Thanh KHÔNG tự tô nền và KHÔNG tự làm mờ nền nữa: lớp kính là một lớp riêng
+     (.appbar::before) luôn nằm dưới nội dung. Trên iOS, `backdrop-filter` đặt trên
+     chính thanh làm WebKit ghép lớp kính lên trên chữ của thanh — tên sân và giờ
+     đang tính bị nhạt/mờ trong khi toạ độ, độ lệch UTC và điểm số vẫn nét. */
+  background: var(--transparent);
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--elev-2);
+}
+
+/* Lớp kính của thanh trên: nền bán trong suốt + làm mờ hậu cảnh, ở mức z-index 0 —
+   LUÔN dưới nội dung (xem `.appbar > *`), nên không thể che mờ hay làm nhạt chữ. */
+.appbar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
   background: color-mix(in srgb, var(--bg) 88%, var(--transparent));
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border-bottom: 1px solid var(--border);
-  box-shadow: var(--elev-2);
+}
+
+/* Nội dung thanh trên nằm TRÊN lớp kính của thanh. */
+.appbar > * {
+  position: relative;
+  z-index: 1;
 }
 
 .appbar-row {
@@ -297,6 +318,11 @@ body {
 .appbar-loc-name {
   flex: none;
   min-width: 0;
+  /* Định vị + z-index: chữ của thanh luôn nằm trên lớp kính (.appbar::before);
+     opacity 1: tên sân không nhận bất kỳ fade nào, ở mọi trạng thái cuộn. */
+  position: relative;
+  z-index: 1;
+  opacity: 1;
   font-weight: 650;
   font-size: var(--fs-md);
   white-space: nowrap;
@@ -331,6 +357,13 @@ body {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+/* Giờ đang tính (dòng đầu của cột giờ): đục hoàn toàn và nằm trên lớp kính của thanh. */
+.appbar-time-value {
+  position: relative;
+  z-index: 1;
+  opacity: 1;
 }
 
 .appbar-offset {
