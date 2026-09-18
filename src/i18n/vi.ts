@@ -216,6 +216,11 @@ export const vi = {
   "build.updateAvailable": "Có bản mới — Tải lại",
   "build.updateReload": "Tải lại",
   "build.updateDismiss": "Để sau",
+  "build.checkUpdate": "Kiểm tra cập nhật",
+  "build.checking": "Đang kiểm tra…",
+  "build.upToDate": "Đang là bản mới nhất",
+  "build.checkUnsupported": "Thiết bị này không hỗ trợ kiểm tra cập nhật",
+  "build.checkFailed": "Không kiểm tra được — thử lại sau",
   "status.offline": "Không có mạng — đang hiển thị bản lưu gần nhất.",
 
   "unit.kmh": "km/h",

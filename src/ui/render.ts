@@ -781,6 +781,66 @@ function segmented<T extends string>(
   );
 }
 
+function renderBuildBlock(state: AppState, actions: Actions): HTMLElement {
+  const lang = state.lang;
+  const status = state.updateCheck.status;
+  // Mỗi kết quả kiểm tra đều có ĐÚNG một câu trả lời cho người dùng; "idle" để trống.
+  const resultText =
+    status === "checking"
+      ? t(lang, "build.checking")
+      : status === "current"
+        ? t(lang, "build.upToDate")
+        : status === "unsupported"
+          ? t(lang, "build.checkUnsupported")
+          : status === "error"
+            ? t(lang, "build.checkFailed")
+            : status === "available"
+              ? t(lang, "build.updateAvailable")
+              : "";
+  return h(
+    "div",
+    { class: "setting-block" },
+    h("span", { class: "field-label", text: t(lang, "build.title") }),
+    // Marker KHÔNG có class sheet-note: ăn cỡ chữ 16px và màu --text kế thừa từ body.
+    h(
+      "p",
+      { class: "build-marker", dataset: { buildMarker: "1" } },
+      `${BUILD_ID} · ${t(lang, "build.builtAt", {
+        time: BUILD_TIME ? formatDateTime(lang, BUILD_TIME.slice(0, 16)) : t(lang, "common.none"),
+      })}`,
+    ),
+    h(
+      "button",
+      {
+        class: "btn ghost full",
+        type: "button",
+        dataset: { buildCheck: "1" },
+        onclick: actions.checkUpdate,
+      },
+      makeIcon(ICONS.refresh, 16),
+      h("span", { text: t(lang, "build.checkUpdate") }),
+    ),
+    h("p", {
+      class: "build-check-result",
+      role: "status",
+      "aria-live": "polite",
+      text: resultText,
+    }),
+    status === "available"
+      ? h(
+          "button",
+          {
+            class: "btn primary full",
+            type: "button",
+            dataset: { buildReload: "1" },
+            onclick: actions.applyUpdate,
+          },
+          t(lang, "build.updateReload"),
+        )
+      : null,
+  );
+}
+
 function renderInputsSheet(state: AppState, actions: Actions): HTMLElement[] {
   const lang = state.lang;
   const bearingValue = h("span", {
@@ -788,6 +848,8 @@ function renderInputsSheet(state: AppState, actions: Actions): HTMLElement[] {
     text: `${formatNumber(lang, state.courtBearing)}${t(lang, "unit.deg")}`,
   });
   return [
+    // Khối phiên bản đứng ĐẦU sheet (ngay sau h2.sheet-title) để luôn thấy mà không phải cuộn.
+    renderBuildBlock(state, actions),
     h(
       "div",
       { class: "setting-block" },
@@ -908,18 +970,6 @@ function renderInputsSheet(state: AppState, actions: Actions): HTMLElement[] {
       },
       makeIcon(ICONS.mapPin, 16),
       h("span", { text: t(lang, "header.changeLocation") }),
-    ),
-    h(
-      "div",
-      { class: "setting-block" },
-      h("span", { class: "field-label", text: t(lang, "build.title") }),
-      h(
-        "p",
-        { class: "sheet-note build-marker" },
-        `${BUILD_ID} · ${t(lang, "build.builtAt", {
-          time: BUILD_TIME ? formatDateTime(lang, BUILD_TIME.slice(0, 16)) : t(lang, "common.none"),
-        })}`,
-      ),
     ),
   ];
 }

@@ -44,6 +44,10 @@ export interface AppState {
   theme: ThemeChoice;
   offline: boolean;
   update: { available: boolean; dismissed: boolean };
+  /** Kết quả của lần bấm "Kiểm tra cập nhật" gần nhất. */
+  updateCheck: {
+    status: "idle" | "checking" | "current" | "available" | "unsupported" | "error";
+  };
 }
 
 export interface Actions {
@@ -64,6 +68,7 @@ export interface Actions {
   applyTime: () => void;
   useNextHour: () => void;
   refresh: () => void;
+  checkUpdate: () => void;
   applyUpdate: () => void;
   dismissUpdate: () => void;
 }
