@@ -130,7 +130,7 @@ describe("isExcludedTouchTarget", () => {
     expect(
       isExcludedTouchTarget({ tagName: "DIV", role: null, classNames: ["sheet", "sheet-wrap", "app"] }),
     ).toBe(false);
-    expect(isExcludedTouchTarget({ tagName: "HEADER", role: null, classNames: ["appbar"] })).toBe(false);
+    expect(isExcludedTouchTarget({ tagName: "HEADER", role: null, classNames: ["infobar"] })).toBe(false);
   });
 
   it("matches the tag name regardless of case", () => {

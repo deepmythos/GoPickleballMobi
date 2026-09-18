@@ -4,9 +4,7 @@ export const de: Dict = {
   "common.close": "Schließen",
   "common.none": "—",
 
-  "appbar.back": "Zurück",
   "appbar.adjust": "Anpassen",
-  "appbar.summary": "{verdict} · {score}/100",
 
   "sheet.title": "Anpassen",
   "sheet.open": "Einstellungsbereich öffnen",
@@ -76,13 +74,10 @@ export const de: Dict = {
   "hero.scoreLabel": "Bedingungswert",
   "hero.outOf": "/ 100",
 
-  "reason.title": "Warum dieser Wert?",
-  "reason.subtitle": "Nach Einfluss sortiert, größter zuerst.",
   "reason.upTemplate": "{note} Dieser Faktor addiert {points} Punkte.",
   "reason.downTemplate": "{note} Dieser Faktor zieht {points} Punkte ab.",
   "reason.flatTemplate": "{note} Kein nennenswerter Einfluss.",
   "reason.neutral": "{label} ist durchschnittlich.",
-  "reason.tapHint": "Tippen für Schwellenwert und Gewicht.",
   "reason.gatesTitle": "Nicht spielbare Bedingungen",
   "reason.gate.night": "Dunkelheit ohne Beleuchtung → gilt als nicht spielbar.",
   "reason.gate.rain": "Starker Regen, rutschiger Platz → gilt als nicht spielbar.",
@@ -189,13 +184,6 @@ export const de: Dict = {
   "wmo.thunderstorm": "Gewitter",
   "wmo.thunderstormHail": "Gewitter mit Hagel",
 
-  "assumption.title": "Annahmen",
-  "assumption.noLights": "Keine Beleuchtung: Dunkelheit gilt als nicht spielbar.",
-  "assumption.lights": "Aktiviert: beleuchteter Platz, auch bei Dunkelheit spielbar.",
-  "assumption.rain24h": "Der Regen der letzten 24 Stunden zeigt, ob der Platz noch nass ist.",
-  "assumption.hourly": "Stundendaten; der Wert gilt für den Beginn der gewählten Stunde.",
-  "assumption.utc": "Zeit nach Europe/Berlin, Sommer-/Winterzeit automatisch berücksichtigt.",
-  "assumption.courtBearing": "Platz standardmäßig Nord–Süd; in den Einstellungen änderbar.",
 
   "status.loading": "Daten werden geladen…",
   "status.errorTitle": "Daten konnten nicht geladen werden",

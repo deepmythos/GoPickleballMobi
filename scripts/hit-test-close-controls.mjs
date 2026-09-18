@@ -305,14 +305,14 @@ async function main() {
   });
 
   await cdp.send("Page.navigate", { url });
-  await cdp.waitFor("document.querySelector('.appbar')", 15000, "thanh trên render");
+  await cdp.waitFor("document.querySelector('.infobar')", 15000, "thanh trên render");
   await sleep(1200);
 
   // ---- bước 1: hit-test mọi nút đóng, mỗi nút trong sheet của nó ----
   const cases = [
-    { name: "sheet Địa điểm — .sheet-close", open: ".appbar-loc", control: ".sheet-close" },
+    { name: "sheet Địa điểm — .sheet-close", open: ".infobar-loc", control: ".sheet-close" },
     { name: "sheet Thông số — .sheet-close", open: ".actionbar-adjust", control: ".sheet-close" },
-    { name: "mũi tên quay lại trên thanh — .appbar-back", open: ".appbar-loc", control: ".appbar-back" },
+
   ];
 
   for (const item of cases) {
@@ -367,12 +367,12 @@ async function main() {
   // Clip của CDP tính theo toạ độ TÀI LIỆU, nên phải cộng `scrollY` — nếu không, ở trạng
   // thái đã cuộn clip sẽ nằm ngoài khung nhìn và ảnh trả về trống.
   const barClip = () => cdp.js(`
-    const r = document.querySelector('.appbar').getBoundingClientRect();
+    const r = document.querySelector('.infobar').getBoundingClientRect();
     return { x: 0, y: window.scrollY + r.top, width: ${WIDTH}, height: Math.ceil(r.height) };
   `);
   const scrollState = () => cdp.js(`
-    const bar = document.querySelector('.appbar').getBoundingClientRect();
-    const cs = getComputedStyle(document.querySelector('.appbar'));
+    const bar = document.querySelector('.infobar').getBoundingClientRect();
+    const cs = getComputedStyle(document.querySelector('.infobar'));
     return { windowScrollY: Math.round(window.scrollY), barTop: Math.round(bar.top),
              barBottom: Math.round(bar.bottom), position: cs.position, top: cs.top,
              scrollHeight: document.scrollingElement.scrollHeight,
@@ -382,17 +382,17 @@ async function main() {
   for (const theme of ["light", "dark"]) {
     await cdp.js(`window.localStorage.setItem("pickleball-go-nogo.theme.v1", ${JSON.stringify(theme)});`);
     await cdp.send("Page.reload");
-    await cdp.waitFor("document.querySelector('.appbar')", 15000, `render lại (${theme})`);
+    await cdp.waitFor("document.querySelector('.infobar')", 15000, `render lại (${theme})`);
     await sleep(1200);
     await cdp.js("window.scrollTo(0, 0); return true;");
     await sleep(200);
     const restScroll = await scrollState();
-    shots.push(await cdp.screenshot(join(args.out, `appbar-${theme}-rest.png`), await barClip()));
+    shots.push(await cdp.screenshot(join(args.out, `infobar-${theme}-rest.png`), await barClip()));
     shots.push(await cdp.screenshot(join(args.out, `viewport-${theme}-rest.png`)));
     await cdp.js("window.scrollTo(0, 900); return true;");
     await sleep(500);
     const afterScroll = await scrollState();
-    shots.push(await cdp.screenshot(join(args.out, `appbar-${theme}-scrolled.png`), await barClip()));
+    shots.push(await cdp.screenshot(join(args.out, `infobar-${theme}-scrolled.png`), await barClip()));
     shots.push(await cdp.screenshot(join(args.out, `viewport-${theme}-scrolled.png`)));
     report.scrollStates.push({ theme, rest: restScroll, scrolled: afterScroll });
     // Chữ trong thanh có bị làm nhạt không? (opacity/filter/mix-blend-mode + chuỗi tổ tiên)
@@ -412,10 +412,10 @@ async function main() {
         }
         return { sel, text: el.textContent, color: own.color, opacity: own.opacity, chain };
       };
-      return { name: probe('.appbar-loc-name'), time: probe('.appbar-time-value'), coords: probe('.appbar-coords') };
+      return { name: probe('.infobar-loc-name'), time: probe('.infobar-time-value'), coords: probe('.infobar-coords') };
     `);
     const bg = await cdp.js(`
-      const cs = getComputedStyle(document.querySelector('.appbar'));
+      const cs = getComputedStyle(document.querySelector('.infobar'));
       return { background: cs.backgroundColor, backdropFilter: cs.backdropFilter,
                webkitBackdropFilter: cs.webkitBackdropFilter, boxShadow: cs.boxShadow,
                borderBottom: cs.borderBottomColor + " " + cs.borderBottomWidth,
