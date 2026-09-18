@@ -37,8 +37,8 @@ export interface Evaluation {
   gates: string[];
   missing: string[];
   confidence: Confidence;
-  rain24h: number | null;
-  rain24hComplete: boolean;
+  rain3h: number | null;
+  rain3hComplete: boolean;
   aqi: number | null;
   pm25: number | null;
   pm10: number | null;
@@ -62,8 +62,18 @@ function findHourIndex(times: string[], targetHour: string): number {
   return -1;
 }
 
-function sumRainBefore(hourly: HourlyPoint[], index: number): { sum: number; complete: boolean } {
-  const start = Math.max(0, index - 24);
+/**
+ * Cửa sổ mưa là ba bucket giờ NGAY TRƯỚC giờ được đánh giá: t-3, t-2, t-1.
+ * Không bao gồm giờ t. Đây là nơi DUY NHẤT định nghĩa kích thước cửa sổ mưa.
+ */
+export const RAIN_WINDOW_HOURS = 3;
+
+/**
+ * Tổng lượng mưa của RAIN_WINDOW_HOURS bucket ngay trước `index` (t-3, t-2, t-1).
+ * Chỉ nơi này biết kích thước cửa sổ; mọi consumer (điểm + cổng ướt) dùng chung.
+ */
+export function rainWindowSum(hourly: HourlyPoint[], index: number): { sum: number; complete: boolean } {
+  const start = Math.max(0, index - RAIN_WINDOW_HOURS);
   let sum = 0;
   let count = 0;
   for (let i = start; i < index; i++) {
@@ -73,14 +83,17 @@ function sumRainBefore(hourly: HourlyPoint[], index: number): { sum: number; com
       count++;
     }
   }
-  return { sum: Math.round(sum * 100) / 100, complete: index >= 24 && count === 24 };
+  return {
+    sum: Math.round(sum * 100) / 100,
+    complete: index >= RAIN_WINDOW_HOURS && count === RAIN_WINDOW_HOURS,
+  };
 }
 
 function deriveConfidence(missing: string[], stale: boolean): Confidence {
   if (stale) return "low";
   const core = [
     "rain_current",
-    "rain_24h",
+    "rain_3h",
     "wind_gust",
     "apparent_temperature",
     "visibility",
@@ -105,7 +118,7 @@ export function evaluate(params: EvaluateParams): Evaluation {
   const sun = solarPosition(targetDate, params.location.lat, params.location.lon);
   const utcOffsetMinutes = getOffsetMinutes(targetDate, APP_TIMEZONE);
 
-  const rain24 = sumRainBefore(forecast.hourly, index);
+  const rain3h = rainWindowSum(forecast.hourly, index);
 
   let aqi: number | null = null;
   let pm25: number | null = null;
@@ -126,7 +139,7 @@ export function evaluate(params: EvaluateParams): Evaluation {
   const input: ScoreInput = {
     rainCurrent: point.precipitation ?? point.rain,
     rainProbability: point.precipitation_probability,
-    rain24h: rain24.sum,
+    rain3h: rain3h.sum,
     windSpeed: point.wind_speed_10m,
     windGust: point.wind_gusts_10m,
     apparentTemperature: point.apparent_temperature,
@@ -144,7 +157,7 @@ export function evaluate(params: EvaluateParams): Evaluation {
   const result = scoreConditions(input);
 
   const missing = [...result.missing];
-  if (!rain24.complete) missing.push("rain_24h_partial");
+  if (!rain3h.complete) missing.push("rain_3h_partial");
   if (air === null) missing.push("european_aqi");
   const uniqueMissing = [...new Set(missing)];
 
@@ -160,8 +173,8 @@ export function evaluate(params: EvaluateParams): Evaluation {
     gates: result.gates,
     missing: uniqueMissing,
     confidence: deriveConfidence(uniqueMissing, Boolean(params.stale)),
-    rain24h: rain24.sum,
-    rain24hComplete: rain24.complete,
+    rain3h: rain3h.sum,
+    rain3hComplete: rain3h.complete,
     aqi,
     pm25,
     pm10,

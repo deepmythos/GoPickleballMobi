@@ -321,6 +321,7 @@ function renderRaw(state: AppState, actions: Actions): HTMLElement {
     stat(t(lang, "raw.precipitation"), u(p.precipitation, t(lang, "unit.mm"), { maximumFractionDigits: 1 })),
     stat(t(lang, "raw.precipProbability"), u(p.precipitation_probability, t(lang, "unit.percent"))),
     stat(t(lang, "raw.rain"), u(p.rain, t(lang, "unit.mm"), { maximumFractionDigits: 1 })),
+    stat(t(lang, "raw.rain3h"), u(ev.rain3h, t(lang, "unit.mm"), { maximumFractionDigits: 1 })),
     stat(t(lang, "raw.weatherCode"), weatherText(lang, p.weather_code)),
     stat(t(lang, "raw.cloudCover"), u(p.cloud_cover, t(lang, "unit.percent"))),
     stat(t(lang, "raw.visibility"), visibility(p.visibility)),
@@ -470,7 +471,7 @@ function renderBanner(state: AppState): HTMLElement | null {
   }
   if (ev.missing.length > 0) {
     const missingLabels = ev.missing
-      .map((id) => (id === "rain_24h_partial" ? t(lang, "factor.rain_24h") : t(lang, MSG(`factor.${id}`))))
+      .map((id) => (id === "rain_3h_partial" ? t(lang, "factor.rain_3h") : t(lang, MSG(`factor.${id}`))))
       .join(", ");
     parts.push(
       h(

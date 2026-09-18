@@ -45,7 +45,7 @@ export interface SunPosition {
 export interface ScoreInput {
   rainCurrent: number | null;
   rainProbability: number | null;
-  rain24h: number | null;
+  rain3h: number | null;
   windSpeed: number | null;
   windGust: number | null;
   apparentTemperature: number | null;

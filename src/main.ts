@@ -16,7 +16,7 @@ import {
   savePreferences,
   saveReading,
 } from "./cache";
-import { evaluate, NoTargetHourError, type Evaluation } from "./evaluate";
+import { evaluate, NoTargetHourError, RAIN_WINDOW_HOURS, type Evaluation } from "./evaluate";
 import { BUILD_ID, BUILD_TIME } from "./build";
 import { applyUpdate, checkForUpdate, initPwa } from "./pwa";
 import { isLang, t } from "./i18n";
@@ -49,6 +49,8 @@ interface WindowVerdict {
   confidence?: string;
   missing?: string[];
   gates?: string[];
+  rain3h?: number | null;
+  rainWindowHours?: number;
   stale?: boolean;
 }
 
@@ -235,6 +237,8 @@ function start(): void {
       confidence: ev.confidence,
       missing: ev.missing,
       gates: ev.gates,
+      rain3h: ev.rain3h,
+      rainWindowHours: RAIN_WINDOW_HOURS,
       stale: state.stale,
     };
   }

@@ -13,7 +13,7 @@ export interface FactorMeta {
 export const FACTOR_META: Record<string, FactorMeta> = {
   rain_current: { maxWeight: 12, idealMin: 0, idealMax: 0 },
   rain_probability: { maxWeight: 7, idealMin: 0, idealMax: 10 },
-  rain_24h: { maxWeight: 14, idealMin: 0, idealMax: 0 },
+  rain_3h: { maxWeight: 14, idealMin: 0, idealMax: 0 },
   wind_speed: { maxWeight: 6, idealMin: 0, idealMax: 10 },
   wind_gust: { maxWeight: 14, idealMin: 0, idealMax: 15 },
   apparent_temperature: { maxWeight: 16, idealMin: 16, idealMax: 26 },
@@ -64,7 +64,7 @@ export function playabilityGates(input: ScoreInput): GateId[] {
   if (input.windGust !== null && input.windGust >= 60) gates.push("gust");
   if (input.apparentTemperature !== null && input.apparentTemperature >= 35) gates.push("heat");
   if (input.apparentTemperature !== null && input.apparentTemperature <= -5) gates.push("cold");
-  if (input.rain24h !== null && input.rain24h >= 12) gates.push("wet");
+  if (input.rain3h !== null && input.rain3h >= 12) gates.push("wet");
   return gates;
 }
 
@@ -131,7 +131,7 @@ export function scoreConditions(input: ScoreInput): ScoreResult {
     ]),
   );
 
-  add("rain_24h", input.rain24h, UNIT.mm, (v) =>
+  add("rain_3h", input.rain3h, UNIT.mm, (v) =>
     piece(v, [
       [0, 6],
       [0.5, 4],
