@@ -217,6 +217,7 @@ function state(overrides: Partial<AppState> = {}): AppState {
     fetching: false,
     sheet: openInputs(),
     rawOpen: false,
+    blocksOpen: { timecourt: false, location: false },
     geoStatus: "idle",
     geoError: null,
     geoResults: [],
@@ -305,8 +306,8 @@ describe("Màn hình chính — hình sân thu gọn trong hàng 'chói nắng t
     const root = render(state({ sheet: openInputs(), evaluation: makeEvaluation(sun, 1, range) }));
     const row = findGlareRow(root, "vi");
     const compact = diagramIn(row)[0];
-    const courtSection = findAll(root, (n) => n.dataset.block === "court")[0];
-    expect(courtSection, "thiếu section[data-block=court]").toBeDefined();
+    const courtSection = findAll(root, (n) => n.dataset.block === "timecourt")[0];
+    expect(courtSection, "thiếu section[data-block=timecourt]").toBeDefined();
     const full = diagramIn(courtSection)[0];
     expect(full, "thiếu hình full trong khối sân").toBeDefined();
     expect(compact, "thiếu hình compact trong hàng chói").toBeDefined();
@@ -327,8 +328,8 @@ describe("Màn hình chính — hình sân thu gọn trong hàng 'chói nắng t
   it("(c) sheet đóng: hình full ở khối sân + hình compact ở hàng chói, hàng khác không có hình", () => {
     const sun = sunAt(TARGET_HOUR, DIETZENBACH);
     const root = render(state({ sheet: initialSheetState, evaluation: makeEvaluation(sun) }));
-    const courtSection = findAll(root, (n) => n.dataset.block === "court")[0];
-    expect(courtSection, "thiếu section[data-block=court]").toBeDefined();
+    const courtSection = findAll(root, (n) => n.dataset.block === "timecourt")[0];
+    expect(courtSection, "thiếu section[data-block=timecourt]").toBeDefined();
     expect(diagramIn(courtSection).length, "khối sân phải có đúng 1 hình full").toBe(1);
     expect(diagramIn(root).length, "phải có đúng 2 hình khi sheet đóng (full + compact)").toBe(2);
     const row = findGlareRow(root, "vi");
@@ -382,7 +383,7 @@ describe("Màn hình chính — hình sân thu gọn trong hàng 'chói nắng t
         expect(svg.attrs["data-sun-state"], `sai trạng thái cho ${lang}`).toBe("night");
         expect(byClass(row, "cd-shadow").length, "trời tối không được vẽ bóng").toBe(0);
         // Bản compact đã bỏ HẲN chữ; nhãn "không nắng" còn ở hình FULL (khối sân).
-        const courtSection = findAll(root, (n) => n.dataset.block === "court")[0];
+        const courtSection = findAll(root, (n) => n.dataset.block === "timecourt")[0];
         const full = diagramIn(courtSection)[0];
         expect(full.textContent, `thiếu nhãn không nắng cho ${lang}`).toContain(
           t(lang, "court.diagramNoSun"),

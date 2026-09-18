@@ -1,4 +1,4 @@
-import { formatNumber, t } from "../i18n";
+import { formatClock, formatNumber, t } from "../i18n";
 import type { Lang, VerdictLabel } from "../types";
 import { windowSpanHours } from "../window";
 import type { Actions, AppState } from "./state";
@@ -64,6 +64,20 @@ function verdictLabel(lang: Lang, verdict: VerdictLabel): string {
 }
 
 /**
+ * Chuỗi khoảng giờ dùng CHUNG cho `.hour-range-span` và dòng tóm tắt của khối gấp
+ * (Ngày/giờ + Hướng sân). Một nguồn duy nhất nên hai chỗ không thể lệch chữ:
+ * t("time.span") với hai mốc giờ đã địa phương hoá qua formatClock.
+ */
+export function hourRangeSpanText(lang: Lang, fromHour: string, toHour: string): string {
+  const span = windowSpanHours(fromHour, toHour);
+  return t(lang, "time.span", {
+    from: formatClock(lang, fromHour),
+    to: formatClock(lang, toHour),
+    hours: String(Number.isFinite(span) && span >= 0 ? span : 0),
+  });
+}
+
+/**
  * Bộ chọn KHOẢNG GIỜ tự đứng (sẽ được chuyển sang màn hình chính ở ticket sau).
  * Nhận AppState + Actions, không đọc DOM của sheet, không dùng class `sheet-*`.
  *
@@ -96,11 +110,7 @@ export function renderHourRange(
   const refresh = (): void => {
     fromText.textContent = clockText(fromValue);
     toText.textContent = clockText(toValue);
-    spanText.textContent = t(lang, "time.span", {
-      from: clockText(fromValue),
-      to: clockText(toValue),
-      hours: String(Math.max(0, toValue - fromValue)),
-    });
+    spanText.textContent = hourRangeSpanText(lang, combine(day, fromValue), combine(day, toValue));
   };
 
   // Ghi CẢ giá trị hiển thị lẫn aria-valuetext cho CẢ HAI tay nắm, để khi tay này bị kẹp

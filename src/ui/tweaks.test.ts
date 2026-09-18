@@ -207,6 +207,7 @@ function state(overrides: Partial<AppState> = {}): AppState {
     fetching: false,
     sheet: initialSheetState,
     rawOpen: true,
+    blocksOpen: { timecourt: false, location: false },
     geoStatus: "idle",
     geoError: null,
     geoResults: [],
@@ -417,38 +418,38 @@ describe("3. khối thông tin: lề trái = lề phải = lề dưới", () => 
 // ---------------------------------------------------------------- 4. ngày/giờ xuống dòng riêng
 
 describe("4. ngày/giờ nằm sau địa điểm trong DOM order", () => {
-  it(".infobar-time đứng SAU .infobar-loc, và cùng nằm trong khối .infobar", () => {
+  it(".infobar-time đứng SAU .infobar-loc-text trong CÙNG dòng tóm tắt .infobar-summary", () => {
     for (const lang of LANGS) {
       const root = render(state({ lang }));
       const bar = one(root, "infobar");
-      const loc = one(bar, "infobar-loc");
-      const time = one(bar, "infobar-time");
-      const order = documentOrder(bar);
-      expect(order.indexOf(loc), `${lang}: không thấy .infobar-loc`).toBeGreaterThan(-1);
+      const summary = one(bar, "infobar-summary");
+      const locText = one(summary, "infobar-loc-text");
+      const time = one(summary, "infobar-time");
+      const order = documentOrder(summary);
+      expect(order.indexOf(locText), `${lang}: không thấy .infobar-loc-text`).toBeGreaterThan(-1);
       expect(order.indexOf(time), `${lang}: không thấy .infobar-time`).toBeGreaterThan(-1);
       expect(
-        order.indexOf(time) > order.indexOf(loc),
-        `${lang}: .infobar-time phải đứng sau .infobar-loc`,
+        order.indexOf(time) > order.indexOf(locText),
+        `${lang}: .infobar-time phải đứng sau .infobar-loc-text`,
       ).toBe(true);
-      // Mốc giờ không còn nằm bên trong nút địa điểm (nếu nằm trong, nó sẽ là con của .infobar-loc).
+      // Không còn <button> lồng trong <summary> (markup tương tác lồng nhau không hợp lệ):
+      // dòng tóm tắt LÀ điều khiển mở/gấp.
       expect(
-        findAll(loc, (n) => classesOf(n).includes("infobar-time")).length,
-        `${lang}: ngày/giờ vẫn nằm trong khối địa điểm`,
+        findAll(summary, (n) => n.tagName === "button").length,
+        `${lang}: summary không được chứa <button>`,
       ).toBe(0);
       // Vẫn đủ 4 trường của khối thông tin.
       for (const cls of ["infobar-loc-name", "infobar-coords", "infobar-time-value", "infobar-offset"]) {
         expect(byClass(bar, cls).length, `${lang}: thiếu .${cls}`).toBe(1);
       }
-      // Cấu trúc: .infobar có đúng hai con là [khối địa điểm, dòng ngày/giờ] và .infobar-row chỉ
-      // chứa khối địa điểm → ngày/giờ là một DÒNG RIÊNG, không còn chia hàng ngang với địa điểm.
+      // Cấu trúc: .infobar có đúng một con là <details> gấp; nội dung điều khiển địa điểm
+      // nằm trong .infobar-body (MỞ RỘNG), không còn trong sheet nào.
       const elements = (node: FakeNode): FakeNode[] => node.children.filter((c) => c.tagName !== "#text");
-      expect(
-        elements(bar).map((c) => c.attrs.class ?? c.className),
-        `${lang}: hai con của .infobar phải là khối địa điểm rồi dòng ngày/giờ`,
-      ).toEqual(["infobar-row", "infobar-time"]);
-      const rowChildren = elements(one(bar, "infobar-row"));
-      expect(rowChildren.length, `${lang}: .infobar-row phải chỉ chứa khối địa điểm`).toBe(1);
-      expect(classesOf(rowChildren[0])).toContain("infobar-loc");
+      const barChildren = elements(bar);
+      expect(barChildren.length, `${lang}: .infobar phải chỉ chứa một <details>`).toBe(1);
+      expect(barChildren[0].tagName).toBe("details");
+      expect(barChildren[0].dataset.collapse).toBe("location");
+      expect(one(bar, "infobar-body").tagName).toBe("div");
     }
   });
 

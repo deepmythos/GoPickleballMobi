@@ -104,6 +104,7 @@ function baseState(overrides: Partial<AppState> = {}): AppState {
     fetching: false,
     sheet: { panel: "inputs", dragging: false, dragOffsetPx: 0 },
     rawOpen: false,
+    blocksOpen: { timecourt: false, location: false },
     geoStatus: "idle",
     geoError: null,
     geoResults: [],
@@ -156,26 +157,24 @@ describe("sheet Điều chỉnh — mã phiên bản và kiểm tra cập nhật
     if (BUILD_TIME) expect(marker.textContent).toContain(time);
   });
 
-  it("(b) khối phiên bản là CON CUỐI của .sheet, sau mọi setting-block và nút mở sheet vị trí", () => {
+  it("(b) khối phiên bản là CON CUỐI của .sheet, sau mọi setting-block; không còn nút mở sheet vị trí", () => {
     const root = render(baseState());
     const sheet = byClass(root, "sheet")[0];
     expect(sheet, "thiếu .sheet").toBeDefined();
     const children = sheet.children;
     expect(children[0].className).toContain("sheet-title");
-    // Sau khi dời KHỐI NGÀY/GIỜ và KHỐI HƯỚNG SÂN lên màn hình chính, sheet chỉ còn:
-    // tiêu đề + đèn + ngôn ngữ + theme + nút đổi vị trí + khối phiên bản = 6 con.
-    expect(children.length, "sheet phải còn đúng 6 con").toBe(6);
+    // Sheet chỉ còn: tiêu đề + đèn + ngôn ngữ + theme + khối phiên bản = 5 con.
+    // Nút mở sheet vị trí đã bị bỏ: địa điểm nay là khối gấp TRONG TRANG.
+    expect(children.length, "sheet phải còn đúng 5 con").toBe(5);
     const last = children[children.length - 1];
     // Con cuối phải là setting-block chứa đúng một .build-marker và một nút data-build-check.
     expect(last.className.split(/\s+/)).toContain("setting-block");
     expect(byClass(last, "build-marker").length).toBe(1);
     expect(byDataset(last, "buildCheck", "1").length).toBe(1);
-    // Nút mở sheet vị trí phải nằm TRƯỚC khối cuối.
-    const openerIndex = children.findIndex((child) => child.dataset.sheetOpener === "location");
-    expect(openerIndex).toBeGreaterThanOrEqual(0);
-    expect(openerIndex).toBeLessThan(children.length - 1);
     // Không nhân bản: toàn sheet chỉ có đúng một .build-marker.
     expect(byClass(sheet, "build-marker").length).toBe(1);
+    // Nút mở sheet vị trí phải biến mất ở TOÀN BỘ app, không chỉ trong sheet.
+    expect(byDataset(root, "sheetOpener", "location").length, "còn nút mở sheet vị trí").toBe(0);
   });
 
   it("(c) đúng một nút data-build-check với nhãn từ điển", () => {

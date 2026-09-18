@@ -1,31 +1,41 @@
-// Hai khối điều khiển dời từ sheet Cài đặt lên MÀN HÌNH CHÍNH, ngay dưới hero:
-//   - renderTimeBlock  -> <section class="section" data-block="time">
-//   - renderCourtBlock -> <section class="section" data-block="court">
+// Khối gấp DUY NHẤT gộp NGÀY/GIỜ và HƯỚNG SÂN/ÁNH SÁNG.
 //
-// Đổi thứ tự = đổi 1 dòng trong renderApp (xem src/ui/render.ts), không phải sửa module này.
+// Trước đây là hai <section> rời (data-block="time" và data-block="court"); chủ dự án
+// yêu cầu gộp thành MỘT khối gấp: một dòng tóm tắt, một nội dung mở rộng chứa cả hai.
+// Dùng lại đúng mẫu gấp có sẵn của hàng yếu tố: <details>/<summary> gốc của trình duyệt,
+// KHÔNG dựng thêm cơ chế gấp thứ hai.
 //
-// Hành vi giữ nguyên như khi còn nằm trong sheet: kéo tay nắm tự cập nhật TẠI CHỖ cả hình
-// full lẫn hình compact, không bấm nút "Áp dụng". Nút đó đã bị bỏ vì nó chỉ áp
-// state.atInput/state.toInput — thứ bộ chọn khoảng giờ KHÔNG hề đặt.
+// - Mặc định GẤP: chỉ khi state.blocksOpen.timecourt = true mới render thuộc tính `open`.
+// - Dòng tóm tắt tự đổi TẠI CHỖ khi kéo tay nắm khoảng giờ hoặc thanh bearing (không render lại app).
+// - Sự kiện `toggle` chỉ ghi state.blocksOpen.timecourt + aria-expanded, KHÔNG gọi render():
+//   DOM giữ nguyên trạng thái mở nên focus/scroll không mất.
+//
+// Hành vi kéo tay nắm giữ nguyên như khi còn là hai khối: kéo tự cập nhật tại chỗ cả hình
+// full lẫn hình compact, chỉ `change` mới chốt state.
 
-import { formatClock, formatNumber, t } from "../i18n";
+import { formatClock, formatNumber, t, type MessageKey } from "../i18n";
 import { APP_TIMEZONE } from "../time";
 import { midpointHourOf } from "../window";
 import {
+  compassSector,
   courtDiagram,
   rotateAllCourtDiagrams,
   updateAllCourtDiagramsSun,
 } from "./court-diagram";
-import { renderHourRange } from "./hour-range";
+import { hourRangeSpanText, renderHourRange } from "./hour-range";
+import { ICONS, makeIcon } from "./icons";
 import type { Actions, AppState } from "./state";
 import { diagramLabelFor, sunRangeView } from "./sun-range";
 
 type Child = Node | string | number | null | undefined | false;
 type Attrs = Record<string, unknown>;
 
+/** Ép khoá i18n dựng động ("compass.ne"…) về MessageKey như các module khác. */
+const MSG = (key: string): MessageKey => key as MessageKey;
+
 /**
  * Bản sao nhỏ của `h()` trong ./render. Cố ý KHÔNG import ./render: renderApp import
- * module này để ghép hai khối, nên import ngược lại sẽ tạo vòng.
+ * module này để ghép khối, nên import ngược lại sẽ tạo vòng.
  */
 function el(tag: string, attrs: Attrs = {}, ...children: Child[]): HTMLElement {
   const node = document.createElement(tag);
@@ -57,47 +67,52 @@ function focusScroll(e: FocusEvent): void {
 }
 
 /**
- * Khối NGÀY/GIỜ. Kéo tay nắm khoảng giờ vẽ lại phần mặt trời của MỌI hình đang sống
- * (full + compact) trong cùng một nhịp; chỉ `change` mới chốt state qua setHourRange.
- * Không còn nút "Áp dụng" (xem ghi chú đầu file).
+ * Khối gấp "Ngày/giờ + Hướng sân": một <details> chứa cả bộ chọn khoảng giờ lẫn thanh
+ * bearing và hình sân full. Dòng tóm tắt = mảnh khoảng giờ (tái dùng hourRangeSpanText)
+ * ghép với mảnh trục sân (court.axis) qua template collapse.timeCourtSummary.
  */
-export function renderTimeBlock(state: AppState, actions: Actions): HTMLElement {
+export function renderTimeCourtBlock(state: AppState, actions: Actions): HTMLElement {
   const lang = state.lang;
+  const ev = state.evaluation;
+  const from = state.targetHour;
+  const to = state.toHour ?? state.targetHour;
+
+  /** "Bắc–Nam · 0°": hai hướng compass cộng số độ đã địa phương hoá. */
+  const axisText = (bearing: number): string => {
+    const rounded = Math.round(((bearing % 360) + 360) % 360) % 360;
+    return t(lang, "court.axis", {
+      dir: `${t(lang, MSG(`compass.${compassSector(bearing)}`))}–${t(
+        lang,
+        MSG(`compass.${compassSector(bearing + 180)}`),
+      )}`,
+      deg: formatNumber(lang, rounded),
+    });
+  };
+
+  // Hai mảnh tóm tắt giữ riêng để cập nhật tại chỗ độc lập nhau khi kéo.
+  const spanValue = el("span", {
+    class: "collapse-span",
+    text: hourRangeSpanText(lang, from, to),
+  });
+  const axisValue = el("span", { class: "collapse-axis", text: axisText(state.courtBearing) });
+
+  // Dấu phân cách lấy từ chính template tóm tắt (thay hai placeholder bằng rỗng) nên
+  // không có ký tự hiển thị nào bị chốt cứng ngoài i18n.
+  const summaryValues = el(
+    "span",
+    { class: "collapse-summary-values" },
+    spanValue,
+    t(lang, "collapse.timeCourtSummary", { span: "", axis: "" }),
+    axisValue,
+  );
+
   const preview = (fromHour: string, toHour: string): void => {
     // Một nguồn sự thật: cùng sunRangeView() cấp dữ liệu cho cả hai mặt vẽ.
     updateAllCourtDiagramsSun(sunRangeView(state, fromHour, toHour));
+    // Dòng tóm tắt đổi theo ngay, không cần render lại DOM.
+    spanValue.textContent = hourRangeSpanText(lang, fromHour, toHour);
   };
-  return el(
-    "section",
-    { class: "section", dataset: { block: "time" } },
-    el("span", { class: "field-label", text: t(lang, "time.title") }),
-    renderHourRange(state, actions, preview),
-    el("p", {
-      class: "sheet-note",
-      text: t(lang, "time.midpointNote", {
-        hour: formatClock(
-          lang,
-          state.evaluation?.detailHour ??
-            state.evaluation?.range.midpointHour ??
-            midpointHourOf(state.targetHour, state.toHour ?? state.targetHour),
-        ),
-      }),
-    }),
-    el("p", { class: "sheet-note", text: `${t(lang, "time.local")}: ${APP_TIMEZONE}` }),
-    state.applyErrorKey === "time.invalidTime"
-      ? el("p", { class: "sheet-note error-text apply-error", text: t(lang, "time.invalidTime") })
-      : null,
-  );
-}
 
-/**
- * Khối HƯỚNG SÂN/ÁNH SÁNG với hình FULL. Kéo thanh bearing xoay TẠI CHỖ cả hình full lẫn
- * hình compact; chỉ `change` mới chốt state qua setBearing (giống hành vi cũ).
- * Công tắc "Sân có đèn" KHÔNG thuộc khối này — nó ở lại sheet Cài đặt.
- */
-export function renderCourtBlock(state: AppState, actions: Actions): HTMLElement {
-  const lang = state.lang;
-  const ev = state.evaluation;
   const initialRange = ev ? sunRangeView(state, ev.range.from, ev.range.to) : null;
   const bearingValue = el("span", {
     class: "bearing-value",
@@ -114,33 +129,79 @@ export function renderCourtBlock(state: AppState, actions: Actions): HTMLElement
     northLabel: t(lang, "compass.n"),
     noSunLabel: t(lang, "court.diagramNoSun"),
   });
-  return el(
-    "section",
-    { class: "section", dataset: { block: "court" } },
-    el("span", { class: "field-label", text: t(lang, "court.title") }),
+
+  const bearingInput = el("input", {
+    type: "range",
+    min: "0",
+    max: "359",
+    step: "1",
+    value: String(state.courtBearing),
+    class: "range",
+    "aria-label": t(lang, "court.bearing"),
+    // Cập nhật nhãn, mảnh trục sân của tóm tắt VÀ xoay CẢ HAI hình ngay khi kéo
+    // (KHÔNG render lại DOM giữa cử chỉ), chỉ chốt state lúc nhả tay.
+    oninput: (e: Event) => {
+      const value = Number((e.target as HTMLInputElement).value);
+      bearingValue.textContent = `${formatNumber(lang, value)}${t(lang, "unit.deg")}`;
+      axisValue.textContent = axisText(value);
+      rotateAllCourtDiagrams(value);
+    },
+    onchange: (e: Event) => actions.setBearing(Number((e.target as HTMLInputElement).value)),
+    onfocus: focusScroll,
+  });
+
+  const summary = el(
+    "summary",
+    {
+      class: "collapse-summary",
+      dataset: { collapseSummary: "timecourt" },
+      "aria-expanded": state.blocksOpen.timecourt ? "true" : "false",
+    },
+    summaryValues,
+    makeIcon(ICONS.chevronDown, 18, "collapse-chevron"),
+  );
+
+  const details = el(
+    "details",
+    {
+      class: "collapse",
+      dataset: { collapse: "timecourt" },
+      // Có `open` chỉ khi state cho phép — mặc định gấp, và render lại vẫn khôi phục đúng.
+      open: state.blocksOpen.timecourt ? true : false,
+    },
+    summary,
     el(
       "div",
-      { class: "bearing-row" },
-      el("input", {
-        type: "range",
-        min: "0",
-        max: "359",
-        step: "1",
-        value: String(state.courtBearing),
-        class: "range",
-        "aria-label": t(lang, "court.bearing"),
-        // Cập nhật nhãn VÀ xoay CẢ HAI hình ngay khi kéo (KHÔNG render lại DOM giữa cử chỉ),
-        // chỉ chốt state lúc nhả tay để thanh trượt không bị huỷ.
-        oninput: (e: Event) => {
-          const value = Number((e.target as HTMLInputElement).value);
-          bearingValue.textContent = `${formatNumber(lang, value)}${t(lang, "unit.deg")}`;
-          rotateAllCourtDiagrams(value);
-        },
-        onchange: (e: Event) => actions.setBearing(Number((e.target as HTMLInputElement).value)),
-        onfocus: focusScroll,
+      { class: "collapse-body", id: "collapse-body-timecourt" },
+      el("span", { class: "field-label", text: t(lang, "time.title") }),
+      el("div", { class: "hour-range-slot" }, renderHourRange(state, actions, preview)),
+      el("p", {
+        class: "sheet-note",
+        text: t(lang, "time.midpointNote", {
+          hour: formatClock(
+            lang,
+            state.evaluation?.detailHour ??
+              state.evaluation?.range.midpointHour ??
+              midpointHourOf(state.targetHour, state.toHour ?? state.targetHour),
+          ),
+        }),
       }),
-      bearingValue,
+      el("p", { class: "sheet-note", text: `${t(lang, "time.local")}: ${APP_TIMEZONE}` }),
+      state.applyErrorKey === "time.invalidTime"
+        ? el("p", { class: "sheet-note error-text apply-error", text: t(lang, "time.invalidTime") })
+        : null,
+      el("span", { class: "field-label", text: t(lang, "court.title") }),
+      el("div", { class: "bearing-row" }, bearingInput, bearingValue),
+      courtSvg,
     ),
-    courtSvg,
   );
+
+  // Sự kiện gấp/mở của <details>: chỉ ghi state + aria-expanded, KHÔNG render lại.
+  details.addEventListener("toggle", () => {
+    const open = details.hasAttribute("open");
+    state.blocksOpen.timecourt = open;
+    summary.setAttribute("aria-expanded", open ? "true" : "false");
+  });
+
+  return el("section", { class: "section", dataset: { block: "timecourt" } }, details);
 }

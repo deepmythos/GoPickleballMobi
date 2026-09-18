@@ -129,6 +129,7 @@ function state(overrides: Partial<AppState> = {}): AppState {
     fetching: false,
     sheet: initialSheetState,
     rawOpen: false,
+    blocksOpen: { timecourt: false, location: false },
     geoStatus: "idle",
     geoError: null,
     geoResults: [],
@@ -143,7 +144,7 @@ function state(overrides: Partial<AppState> = {}): AppState {
   };
 }
 
-function openSheet(panel: "location" | "inputs"): AppState["sheet"] {
+function openSheet(panel: "inputs"): AppState["sheet"] {
   return sheetReducer(sheetReducer(initialSheetState, { type: "open", panel }), { type: "dragEnd" });
 }
 
@@ -196,8 +197,7 @@ function chainText(node: FakeNode): string {
 describe("nút X — hit-test: cú chạm thuộc về điều khiển, không bị cử chỉ kéo nuốt", () => {
   it("mọi nút đóng là <button> có handler click và bị loại khỏi cử chỉ kéo", () => {
     const cases: { name: string; card: AppState; cls: string }[] = [
-      { name: "sheet Địa điểm", card: state({ sheet: openSheet("location") }), cls: "sheet-close" },
-      { name: "sheet Thông số", card: state({ sheet: openSheet("inputs") }), cls: "sheet-close" },
+      { name: "sheet Cài đặt", card: state({ sheet: openSheet("inputs") }), cls: "sheet-close" },
       {
         name: "nút X của băng 'có bản mới'",
         card: state({ update: { available: true, dismissed: false } }),
@@ -234,7 +234,7 @@ describe("nút X — hit-test: cú chạm thuộc về điều khiển, không b
   });
 
   it("cú chạm vào thân sheet và tay nắm vẫn KHÔNG bị loại — kéo-để-đóng còn nguyên", () => {
-    const root = render(state({ sheet: openSheet("location") }));
+    const root = render(state({ sheet: openSheet("inputs") }));
     for (const cls of ["sheet-grab", "sheet-handle", "sheet-title"]) {
       const nodes = byClass(root, cls);
       expect(nodes.length, `thiếu .${cls}`).toBeGreaterThan(0);
@@ -248,7 +248,7 @@ describe("nút X — hit-test: cú chạm thuộc về điều khiển, không b
   });
 
   it("nền sheet (.sheet-backdrop) là vùng bấm có handler click đóng sheet", () => {
-    const root = render(state({ sheet: openSheet("location") }));
+    const root = render(state({ sheet: openSheet("inputs") }));
     const backdrops = byClass(root, "sheet-backdrop");
     expect(backdrops.length, "thiếu .sheet-backdrop").toBe(1);
     expect((backdrops[0].listeners.click ?? []).length, "nền sheet phải có handler click").toBeGreaterThan(0);
@@ -273,7 +273,7 @@ describe("nút X — hit-test: cú chạm thuộc về điều khiển, không b
   });
 
   it("aria-label của nút X vẫn là chuỗi i18n 'đóng' (không đổi nhãn khi sửa lỗi)", () => {
-    const root = render(state({ sheet: openSheet("location") }));
+    const root = render(state({ sheet: openSheet("inputs") }));
     const close = byClass(root, "sheet-close")[0];
     expect(close.getAttribute("aria-label")).toBe(t("vi", "common.close"));
   });

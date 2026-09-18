@@ -159,6 +159,7 @@ function initialiseState(params: URLSearchParams): AppState {
     fetching: false,
     sheet: initialSheetState,
     rawOpen: false,
+    blocksOpen: { timecourt: false, location: false },
     geoStatus: "idle",
     geoError: null,
     geoResults: [],
@@ -186,8 +187,6 @@ function start(): void {
 
   let sheetEntryPushed = false;
   let pendingFocus: "sheet" | "opener" | null = null;
-  /** Selector của nút đã MỞ sheet, để trả focus về đúng chỗ khi đóng. */
-  let openerSelector = ".actionbar-adjust";
 
   function persist(): void {
     savePreferences({
@@ -444,21 +443,10 @@ function start(): void {
   const actions: Actions = {
     openSheet(panel) {
       state.applyErrorKey = null;
-      if (panel === "location") {
-        // Nhớ nút đã mở: nút trong khối thông tin khi mở từ ngoài, nút trong sheet khi mở từ sheet khác.
-        openerSelector = isSheetOpen(state.sheet)
-          ? '[data-sheet-opener="location"]'
-          : ".infobar-loc";
-        state.draft = { ...state.location };
-        state.searchQuery = "";
-        state.geoResults = [];
-        state.geoStatus = "idle";
-        state.geoError = null;
-      } else {
-        openerSelector = ".actionbar-adjust";
-        state.atInput = state.targetHour;
-        state.toInput = state.toHour ?? state.targetHour;
-      }
+      // Chỉ còn panel "inputs" (Cài đặt); khối địa điểm nay là khối gấp trong trang nên
+      // không còn phần reset draft/search/geo riêng cho sheet địa điểm nữa.
+      state.atInput = state.targetHour;
+      state.toInput = state.toHour ?? state.targetHour;
       runSheetActions({ type: "open", panel });
     },
     closeSheet() {
@@ -541,7 +529,8 @@ function start(): void {
       state.location = result.location;
       persist();
       updateUrl();
-      runSheetActions({ type: "close" });
+      // Khối địa điểm nay là khối gấp TRONG TRANG (không còn sheet) nên KHÔNG đóng sheet nào.
+      // loadData() tự gọi render() ở đầu nên giao diện cập nhật ngay.
       void loadData();
     },
     locateMe() {
@@ -776,7 +765,7 @@ function start(): void {
       const which = pendingFocus;
       pendingFocus = null;
       requestAnimationFrame(() => {
-        const selector = which === "sheet" ? ".sheet-close" : openerSelector;
+        const selector = which === "sheet" ? ".sheet-close" : ".actionbar-adjust";
         const target =
           root.querySelector<HTMLElement>(selector) ??
           root.querySelector<HTMLElement>(".actionbar-adjust");

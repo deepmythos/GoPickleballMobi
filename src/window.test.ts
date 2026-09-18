@@ -196,6 +196,7 @@ function state(overrides: Partial<AppState> = {}): AppState {
     fetching: false,
     sheet: openInputs(),
     rawOpen: false,
+    blocksOpen: { timecourt: false, location: false },
     geoStatus: "idle",
     geoError: null,
     geoResults: [],

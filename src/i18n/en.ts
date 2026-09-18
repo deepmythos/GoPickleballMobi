@@ -30,6 +30,7 @@ export const en: Dict = {
   "location.searchFailed": "Place search failed. Try again or enter coordinates manually.",
   "location.invalidCoords": "Invalid coordinates. Latitude between -90 and 90, longitude between -180 and 180.",
   "location.defaultName": "Pickleball-Plätze, Offenthaler Straße, Dietzenbach",
+  "location.expandHint": "tap to open the location controls",
 
   "time.title": "Date and time",
   "time.rangeLabel": "Time range",
@@ -43,10 +44,14 @@ export const en: Dict = {
   "time.apply": "Apply",
   "time.invalidTime": "Invalid time. Pick a complete date and time.",
 
+  // Tóm tắt khối gấp Ngày/giờ + Hướng sân: ghép mảnh khoảng giờ với mảnh trục sân.
+  "collapse.timeCourtSummary": "{span} · {axis}",
+
   "court.title": "Court orientation and light",
   "court.bearing": "Long-axis bearing",
+  "court.axis": "{dir} · {deg}°",
   "court.diagramLabel": "Top-down court to scale. Long axis {axis}° ({axisDir}). Sun at {sun}° ({sunDir}), {alt}° above the horizon, so the shadow falls {shadowDir}.",
-  "court.diagramLabelRange": "Top-down court to scale. Long axis {axis}° ({axisDir}). The sun moves from {start} to {end} clockwise (azimuth {sunStart}° → {sunEnd}°). The shadow is drawn for the midpoint hour {midpoint}.",
+  "court.diagramLabelRange": "Top-down court to scale. Long axis {axis}° ({axisDir}). The sun moves from {start} to {end} clockwise (azimuth {sunStart}° → {sunEnd}°, altitude {altStart}° → {altEnd}°). The shadow is drawn for the midpoint hour {midpoint}.",
   "court.diagramLabelNight": "Top-down court to scale. Long axis {axis}° ({axisDir}). No sun — it is dark, so no shadow is drawn.",
   "court.diagramLabelUnknown": "Top-down court to scale. Long axis {axis}° ({axisDir}). Sun position unknown.",
   "court.diagramNoSun": "No sun",

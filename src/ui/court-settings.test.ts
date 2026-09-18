@@ -97,8 +97,8 @@ function byAttr(root: FakeNode, name: string): FakeNode[] {
  * svg.court-diagram[data-variant="full"] để không lẫn hình compact ở hàng "chói nắng".
  */
 function fullDiagram(root: FakeNode): FakeNode {
-  const section = findAll(root, (node) => node.dataset.block === "court")[0];
-  if (!section) throw new Error("thiếu section[data-block=court]");
+  const section = findAll(root, (node) => node.dataset.block === "timecourt")[0];
+  if (!section) throw new Error("thiếu section[data-block=timecourt]");
   const svg = findAll(
     section,
     (node) =>
@@ -207,6 +207,7 @@ function state(overrides: Partial<AppState> = {}): AppState {
     fetching: false,
     sheet: openInputs(),
     rawOpen: false,
+    blocksOpen: { timecourt: false, location: false },
     geoStatus: "idle",
     geoError: null,
     geoResults: [],

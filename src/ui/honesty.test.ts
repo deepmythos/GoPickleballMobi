@@ -96,6 +96,7 @@ function state(overrides: Partial<AppState> = {}): AppState {
     fetching: false,
     sheet: initialSheetState,
     rawOpen: false,
+    blocksOpen: { timecourt: false, location: false },
     geoStatus: "idle",
     geoError: null,
     geoResults: [],
@@ -109,10 +110,6 @@ function state(overrides: Partial<AppState> = {}): AppState {
     updateCheck: { status: "idle" },
     ...overrides,
   };
-}
-
-function openLocation(): AppState["sheet"] {
-  return sheetReducer(initialSheetState, { type: "open", panel: "location" });
 }
 
 function openInputs(): AppState["sheet"] {
@@ -141,7 +138,7 @@ describe("G3 — tìm địa điểm thất bại KHÔNG báo lỗi định vị
   it("hiện thông báo tìm kiếm thất bại ở cả 3 ngôn ngữ", () => {
     for (const lang of LANGS) {
       const root = render(
-        state({ lang, sheet: openLocation(), geoStatus: "error", geoError: "search" }),
+        state({ lang, blocksOpen: { timecourt: false, location: true }, geoStatus: "error", geoError: "search" }),
       );
       const notes = byClass(root, "error-text");
       expect(notes.length, `thiếu .error-text cho ${lang}`).toBe(1);
@@ -153,7 +150,7 @@ describe("G3 — tìm địa điểm thất bại KHÔNG báo lỗi định vị
 
   it("vẫn báo lỗi định vị khi lỗi đến từ định vị", () => {
     const root = render(
-      state({ sheet: openLocation(), geoStatus: "error", geoError: "locate" }),
+      state({ blocksOpen: { timecourt: false, location: true }, geoStatus: "error", geoError: "locate" }),
     );
     const notes = byClass(root, "error-text");
     expect(notes[0].textContent).toBe(t("vi", "location.geoDenied"));
@@ -165,7 +162,7 @@ describe("G4 — nhãn đang chờ nói đúng thao tác", () => {
   it("định vị đang chờ hiện nhãn định vị, không phải nhãn tìm kiếm", () => {
     for (const lang of LANGS) {
       const root = render(
-        state({ lang, sheet: openLocation(), geoStatus: "loading", geoError: "locate" }),
+        state({ lang, blocksOpen: { timecourt: false, location: true }, geoStatus: "loading", geoError: "locate" }),
       );
       const notes = byClass(root, "sheet-note").map((n) => n.textContent);
       expect(notes, `thiếu nhãn định vị cho ${lang}`).toContain(t(lang, "location.locating"));
@@ -175,7 +172,7 @@ describe("G4 — nhãn đang chờ nói đúng thao tác", () => {
 
   it("tìm kiếm đang chờ vẫn hiện nhãn tìm kiếm", () => {
     const root = render(
-      state({ sheet: openLocation(), geoStatus: "loading", geoError: null }),
+      state({ blocksOpen: { timecourt: false, location: true }, geoStatus: "loading", geoError: null }),
     );
     const notes = byClass(root, "sheet-note").map((n) => n.textContent);
     expect(notes).toContain(t("vi", "location.searching"));
@@ -192,7 +189,7 @@ describe("G5 — ô vĩ độ bị xoá không bị ép thành 0", () => {
       },
     } as unknown as Actions;
 
-    const root = render(state({ sheet: openLocation() }), actions);
+    const root = render(state({ blocksOpen: { timecourt: false, location: true } }), actions);
     const numberInputs = byClass(root, "input").filter((n) => n.attrs.type === "number");
     expect(numberInputs.length).toBe(2);
     const latInput = numberInputs[0];
@@ -208,7 +205,7 @@ describe("G5 — ô vĩ độ bị xoá không bị ép thành 0", () => {
   });
 
   it("ô NaN không hiện chuỗi \"NaN\" mà để trống", () => {
-    const root = render(state({ sheet: openLocation(), draft: { lat: Number.NaN, lon: 8.76, name: "x" } }));
+    const root = render(state({ blocksOpen: { timecourt: false, location: true }, draft: { lat: Number.NaN, lon: 8.76, name: "x" } }));
     const numberInputs = byClass(root, "input").filter((n) => n.attrs.type === "number");
     expect(numberInputs[0].attrs.value).toBe("");
     expect(numberInputs[1].attrs.value).toBe("8.76");
@@ -216,15 +213,22 @@ describe("G5 — ô vĩ độ bị xoá không bị ép thành 0", () => {
 });
 
 describe("G5 — lỗi áp dụng hiện ngay trong sheet, sheet vẫn mở", () => {
-  it("panel location: hiện location.invalidCoords và giữ .sheet-wrap", () => {
+  it("khối location: hiện location.invalidCoords trong nội dung mở rộng (không cần sheet)", () => {
     for (const lang of LANGS) {
       const root = render(
-        state({ lang, sheet: openLocation(), applyErrorKey: "location.invalidCoords" }),
+        state({
+          lang,
+          blocksOpen: { timecourt: false, location: true },
+          applyErrorKey: "location.invalidCoords",
+        }),
       );
       const errors = byClass(root, "apply-error");
       expect(errors.length, `thiếu .apply-error cho ${lang}`).toBe(1);
       expect(errors[0].textContent).toBe(t(lang, "location.invalidCoords"));
-      expect(byClass(root, "sheet-wrap").length).toBe(1);
+      expect(
+        byClass(root, "infobar-body").length,
+        "lỗi phải nằm trong nội dung mở rộng của khối địa điểm",
+      ).toBe(1);
     }
   });
 
@@ -241,7 +245,7 @@ describe("G5 — lỗi áp dụng hiện ngay trong sheet, sheet vẫn mở", ()
   });
 
   it("không hiện lỗi áp dụng khi applyErrorKey là null", () => {
-    const root = render(state({ sheet: openLocation(), applyErrorKey: null }));
+    const root = render(state({ blocksOpen: { timecourt: false, location: true }, applyErrorKey: null }));
     expect(byClass(root, "apply-error").length).toBe(0);
   });
 });

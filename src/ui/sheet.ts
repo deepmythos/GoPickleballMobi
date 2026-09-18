@@ -1,6 +1,9 @@
 // State machine THUẦN của bottom sheet — tất định, không đọc clock/DOM.
+//
+// Chỉ còn MỘT panel "inputs" (Cài đặt). Panel "location" đã bị xoá hẳn: khối Địa điểm
+// nay là khối gấp ngay trong trang (xem renderInfo/renderLocationBody trong ./render).
 
-export type SheetPanel = "none" | "inputs" | "location";
+export type SheetPanel = "none" | "inputs";
 
 /** Quãng kéo xuống (px) đủ để đóng sheet khi nhả tay. */
 export const SHEET_DRAG_DISMISS_PX = 96;

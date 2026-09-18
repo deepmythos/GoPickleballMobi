@@ -13,7 +13,7 @@ import { BUILD_ID, BUILD_TIME } from "../build";
 import type { Lang } from "../types";
 import { unitText } from "../units";
 import { courtDiagram, resetCourtDiagrams } from "./court-diagram";
-import { renderCourtBlock, renderTimeBlock } from "./main-blocks";
+import { renderTimeCourtBlock } from "./main-blocks";
 import { dragVisual, type SheetPanel } from "./sheet";
 import { factorIcon, gateIcon, makeIcon, ICONS } from "./icons";
 import { impactBar } from "./impact";
@@ -527,13 +527,14 @@ function renderFooter(state: AppState): HTMLElement {
 }
 
 /**
- * Khối thông tin: tên sân, toạ độ ĐANG DÙNG + độ lệch UTC, mốc giờ đang tính.
+ * Khối ĐỊA ĐIỂM — một khối gấp ngay trong trang (trước đây là thanh tóm tắt + sheet riêng).
  *
- * Trước đây là `<header class="appbar">` GHIM ở đỉnh màn hình. Chủ dự án đã yêu cầu bỏ hẳn thanh
- * đó (trên iPhone nó bị vệt mờ ở đỉnh) và dời nội dung xuống đúng chỗ tiêu đề "Vì sao điểm này?"
- * + phụ đề của nó — tức là ngay trên danh sách yếu tố. Khối này nằm TRONG LUỒNG trang (không
- * sticky/fixed) nên không còn gì neo ở đỉnh; nền ĐỤC màu surface nên không lớp nào vẽ lên chữ.
- * Dòng tóm tắt verdict ("Nên đi · 86/100") đã bị bỏ khỏi khối: verdict đã có khu hero riêng.
+ * Dòng tóm tắt giữ NGUYÊN bốn trường cũ (tên sân, toạ độ ĐANG DÙNG, mốc giờ, độ lệch UTC) với
+ * typography/độ rõ như trước; phần điều khiển đổi địa điểm (tìm kiếm, tên/toạ độ, "dùng vị trí
+ * của tôi", áp dụng, các trạng thái lỗi) nằm trong nội dung MỞ RỘNG ngay bên dưới — không còn
+ * popup/sheet nào. Dùng lại đúng mẫu <details>/<summary> của hàng yếu tố.
+ *
+ * Khối nằm TRONG LUỒNG trang (không sticky/fixed); nền ĐỤC màu surface nên không lớp nào vẽ lên chữ.
  */
 function renderInfo(state: AppState, actions: Actions): HTMLElement {
   const lang = state.lang;
@@ -549,31 +550,24 @@ function renderInfo(state: AppState, actions: Actions): HTMLElement {
   } catch {
     offset = null;
   }
-  // Dòng ngày/giờ KHÔNG còn nằm bên phải khối: nó xuống dòng riêng NGAY DƯỚI địa điểm
-  // (DOM order: .infobar-loc rồi .infobar-time) nên mốc giờ không cạnh tranh chỗ với tên sân
-  // dài, và toạ độ vẫn nằm gọn trong khối địa điểm.
-  return h(
-    "section",
-    { class: "infobar" },
+  const open = state.blocksOpen.location;
+  // Dòng tóm tắt là CHÍNH điều khiển mở/gấp: địa điểm rồi tới mốc giờ (DOM order giữ nguyên
+  // như trước) nên tên sân dài không cạnh tranh chỗ với mốc giờ. Không còn <button> lồng trong
+  // <summary> (markup tương tác lồng nhau không hợp lệ).
+  const summary = h(
+    "summary",
+    {
+      class: "collapse-summary infobar-summary",
+      "aria-expanded": open ? "true" : "false",
+      // Nhãn cho trình đọc màn hình: dòng tóm tắt là nút mở khối địa điểm. Phải tự mô tả
+      // đủ tên sân + toạ độ đang dùng, KHÔNG chỉ "Đổi địa điểm" (sẽ ghi đè tên truy cập).
+      "aria-label": `${state.location.name} · ${coords} · ${t(lang, "location.expandHint")}`,
+    },
     h(
-      "div",
-      { class: "infobar-row" },
-      h(
-        "button",
-        {
-          class: "infobar-loc",
-          type: "button",
-          "aria-label": t(lang, "header.changeLocation"),
-          onclick: () => actions.openSheet("location"),
-        },
-        h(
-          "span",
-          { class: "infobar-loc-text" },
-          h("span", { class: "infobar-loc-name", text: state.location.name }),
-          h("span", { class: "infobar-coords", title: t(lang, "header.usingLocation"), text: coords }),
-        ),
-        makeIcon(ICONS.chevronDown, 14),
-      ),
+      "span",
+      { class: "infobar-loc-text" },
+      h("span", { class: "infobar-loc-name", text: state.location.name }),
+      h("span", { class: "infobar-coords", title: t(lang, "header.usingLocation"), text: coords }),
     ),
     h(
       "span",
@@ -583,7 +577,34 @@ function renderInfo(state: AppState, actions: Actions): HTMLElement {
         ? null
         : h("span", { class: "infobar-offset", title: t(lang, "time.offset"), text: `(${offset})` }),
     ),
+    makeIcon(ICONS.chevronDown, 18, "collapse-chevron"),
   );
+
+  const details = h(
+    "details",
+    {
+      class: "collapse",
+      dataset: { collapse: "location" },
+      // Có `open` chỉ khi state cho phép — mặc định gấp, render lại vẫn khôi phục đúng.
+      open: open ? true : false,
+    },
+    summary,
+    h(
+      "div",
+      { class: "collapse-body infobar-body", id: "collapse-body-location" },
+      h("h3", { class: "collapse-body-title", text: t(lang, "location.title") }),
+      ...renderLocationBody(state, actions),
+    ),
+  );
+
+  // Sự kiện gấp/mở: chỉ ghi state + aria-expanded, KHÔNG render lại (DOM giữ trạng thái mở).
+  details.addEventListener("toggle", () => {
+    const nowOpen = details.hasAttribute("open");
+    state.blocksOpen.location = nowOpen;
+    summary.setAttribute("aria-expanded", nowOpen ? "true" : "false");
+  });
+
+  return h("section", { class: "infobar", dataset: { block: "location" } }, details);
 }
 
 function renderActionBar(state: AppState, actions: Actions): HTMLElement {
@@ -676,7 +697,7 @@ function geoResults(state: AppState, actions: Actions): HTMLElement | null {
   return null;
 }
 
-function renderLocationSheet(state: AppState, actions: Actions): Child[] {
+function renderLocationBody(state: AppState, actions: Actions): Child[] {
   const lang = state.lang;
   return [
     h(
@@ -897,17 +918,6 @@ function renderInputsSheet(state: AppState, actions: Actions): HTMLElement[] {
         actions.setTheme,
       ),
     ),
-    h(
-      "button",
-      {
-        class: "btn ghost full",
-        type: "button",
-        dataset: { sheetOpener: "location" },
-        onclick: () => actions.openSheet("location"),
-      },
-      makeIcon(ICONS.mapPin, 16),
-      h("span", { text: t(lang, "header.changeLocation") }),
-    ),
     // Khối phiên bản nằm CUỐI sheet (theo yêu cầu chủ dự án): muốn thấy thì cuộn `.sheet`
     // xuống đáy. Vẫn render VÔ ĐIỀU KIỆN, không phụ thuộc trạng thái cập nhật.
     renderBuildBlock(state, actions),
@@ -925,8 +935,6 @@ function renderSheet(state: AppState, actions: Actions): HTMLElement | null {
   if (panel === "none") return null;
   // Độ lệch kéo tay được ĐỌC TỪ STATE: re-render giữa chừng (mở details, đổi giờ…) không nuốt mất nó.
   const drag = dragVisual(state.sheet.dragOffsetPx);
-  const isLocation = panel === "location";
-  const body = isLocation ? renderLocationSheet(state, actions) : renderInputsSheet(state, actions);
   return h(
     "div",
     {
@@ -960,8 +968,8 @@ function renderSheet(state: AppState, actions: Actions): HTMLElement | null {
       h(
         "div",
         { class: "sheet" },
-        h("h2", { class: "sheet-title", id: "sheet-title", text: isLocation ? t(lang, "location.title") : t(lang, "sheet.title") }),
-        ...body,
+        h("h2", { class: "sheet-title", id: "sheet-title", text: t(lang, "sheet.title") }),
+        ...renderInputsSheet(state, actions),
       ),
     ),
   );
@@ -982,11 +990,9 @@ export function renderApp(root: HTMLElement, state: AppState, actions: Actions):
     ev ? renderHero(state, animate) : renderStatus(state, actions),
     ev ? renderFactors(state, actions, animate) : renderInfo(state, actions),
     ev ? renderRaw(state, actions) : null,
-    // Hai khối dời từ sheet Cài đặt, nay nằm ở ĐÁY màn hình chính: SAU mục "điều kiện thô"
-    // (section.raw) và ngay TRƯỚC footer — đúng chỗ khối "Giả định" đã bị bỏ.
-    // Đổi thứ tự trong <main> = đổi hai dòng này.
-    renderTimeBlock(state, actions),
-    renderCourtBlock(state, actions),
+    // Khối gấp gộp NGÀY/GIỜ + HƯỚNG SÂN nằm ở ĐÁY màn hình chính: SAU mục "điều kiện thô"
+    // (section.raw) và ngay TRƯỚC footer. Đổi thứ tự trong <main> = đổi một dòng này.
+    renderTimeCourtBlock(state, actions),
   );
 
   const app = h(
