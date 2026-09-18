@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -87,8 +88,8 @@ function bodyOf(css, selector) {
   return hit ? hit.body : null;
 }
 
-/** true khi giá trị nền là ĐỤC: không trong suốt, không alpha < 1, không color-mix với transparent. */
-function isOpaqueBackground(value) {
+/** true khi giá trị nền ĐÃ GIẢI là ĐỤC: không trong suốt, không alpha < 1, không color-mix với transparent. */
+function isOpaqueConcrete(value) {
   if (value === null) return false;
   const v = value.trim().toLowerCase();
   if (v === "" || v === "none" || v === "transparent") return false;
@@ -107,6 +108,74 @@ function isOpaqueBackground(value) {
   return true;
 }
 
+function escapeRe(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Mọi giá trị được khai cho custom property `--name` trong CHÍNH CSS đang kiểm.
+ * Có thể có nhiều định nghĩa (`:root` sáng + override tối) — phép kiểm phải xét HẾT.
+ */
+function customPropertyValues(css, name) {
+  const values = [];
+  const re = new RegExp(`(?:^|;)\\s*${escapeRe(name)}\\s*:\\s*([^;]+)`, "g");
+  for (const rule of rules(css)) {
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(rule.body)) !== null) {
+      values.push(m[1].trim().replace(/\s*!important$/i, "").trim());
+    }
+  }
+  return values;
+}
+
+/**
+ * Giải mọi `var(--name)` / `var(--name, fallback)` bằng chính CSS đang kiểm.
+ * Trả về danh sách các biến thể đã hết `var(...)`, hoặc `null` nếu còn token chưa giải.
+ */
+function expandVars(value, css, depth = 0) {
+  if (depth > 20) return null;
+  const m = value.match(/var\(\s*(--[A-Za-z0-9_-]+)\s*(?:,\s*([^()]*(?:\([^()]*\)[^()]*)*))?\)/);
+  if (!m) return [value];
+  const replacements = customPropertyValues(css, m[1]);
+  const fallback = m[2] !== undefined ? m[2].trim() : null;
+  const choices = replacements.length > 0 ? replacements : fallback === null ? null : [fallback];
+  if (choices === null) return null;
+  const out = [];
+  for (const choice of choices) {
+    const next = value.slice(0, m.index) + choice + value.slice(m.index + m[0].length);
+    const expanded = expandVars(next, css, depth + 1);
+    if (expanded === null) return null;
+    out.push(...expanded);
+  }
+  return out;
+}
+
+/**
+ * true khi nền là ĐỤC. Custom property phải giải được từ chính CSS đang kiểm; MỌI giá trị
+ * giải được (mọi định nghĩa của token) đều phải đục. Token không giải được ⇒ false để test
+ * fail — nếu không, lỗi cũ `var(...)` luôn được coi là đục chỉ đổi chỗ.
+ */
+function isOpaqueBackground(value, css) {
+  if (value === null) return false;
+  const variants = expandVars(value.trim(), css);
+  if (variants === null || variants.length === 0) return false;
+  return variants.every((variant) => isOpaqueConcrete(variant));
+}
+
+/** Vì sao nền bị coi là KHÔNG đục — nêu tên token chưa giải được nếu có. */
+function opacityReason(value, css) {
+  if (value === null) return "thiếu giá trị nền";
+  const variants = expandVars(value.trim(), css);
+  if (variants === null) {
+    const token = (value.match(/var\(\s*(--[A-Za-z0-9_-]+)/) || [])[1] ?? value;
+    return `không giải được custom property ${token} từ CSS đang kiểm`;
+  }
+  const bad = variants.find((variant) => !isOpaqueConcrete(variant));
+  if (bad !== undefined) return `giá trị đã giải không đục: ${bad}`;
+  return `đã giải đục: ${variants.join(" | ")}`;
+}
+
 const GLASS = ["backdrop-filter", "-webkit-backdrop-filter"];
 const LAYER_TRICKS = ["isolation", "transform", "will-change", "filter", ...GLASS];
 
@@ -116,6 +185,53 @@ function distCssFiles() {
   return readdirSync(dir)
     .filter((name) => name.endsWith(".css"))
     .map((name) => resolve(dir, name));
+}
+
+/**
+ * CSS đã build để soi hợp đồng, kèm NỘI DUNG đã đọc (không đọc lại file sau đó vì
+ * `pwa.test.mjs` cũng build vào `dist/` và có thể đang xoá/ghi lại song song).
+ *
+ * Cổng `npm test` chạy TRƯỚC `npm run build`, nên trên cây sạch không có `dist/`: tự chạy
+ * `vite build` của chính dự án (gọi trực tiếp vite đã cài, KHÔNG qua npx). Không lấy được
+ * CSS ⇒ ném lỗi để hợp đồng FAIL rõ ràng, tuyệt đối không được lặng lẽ bỏ qua.
+ */
+let distCssCache = null;
+function loadDistCss() {
+  if (distCssCache !== null) return distCssCache;
+  let buildError = null;
+  if (distCssFiles().length === 0) {
+    const viteBin = resolve(root, "node_modules", "vite", "bin", "vite.js");
+    if (!existsSync(viteBin)) {
+      throw new Error(`hợp đồng CSS trên bản build không thể được đánh giá: thiếu ${viteBin}`);
+    }
+    try {
+      execFileSync(process.execPath, [viteBin, "build"], { cwd: root, stdio: "pipe" });
+    } catch (err) {
+      buildError = err && err.stderr ? String(err.stderr) : String((err && err.message) || err);
+    }
+  }
+  if (buildError !== null) {
+    throw new Error(`hợp đồng CSS trên bản build không thể được đánh giá: vite build lỗi\n${buildError}`);
+  }
+  // Build song song của `pwa.test.mjs` có thể xoá `dist/` ngay sau khi build của ta xong:
+  // chờ ngắn cho tới khi đọc được CSS rồi mới kết luận là không lấy được.
+  const deadline = Date.now() + 15000;
+  for (;;) {
+    try {
+      const files = distCssFiles();
+      if (files.length > 0) {
+        distCssCache = files.map((file) => ({ name: file, css: readFileSync(file, "utf8") }));
+        return distCssCache;
+      }
+    } catch {
+      // build khác đang xoá/ghi lại dist/ — thử lại.
+    }
+    if (Date.now() > deadline) break;
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 150);
+  }
+  throw new Error(
+    "hợp đồng CSS trên bản build không thể được đánh giá: không đọc được dist/assets/*.css",
+  );
 }
 
 describe("khối thông tin — không còn lớp kính nào có thể nằm trên chữ", () => {
@@ -160,8 +276,8 @@ describe("khối thông tin — không còn lớp kính nào có thể nằm tr�
     expect(bar, "thiếu rule .infobar").not.toBeNull();
     const background = decl(bar, "background") ?? decl(bar, "background-color");
     expect(
-      isOpaqueBackground(background),
-      `nền thanh phải đục — đang là: ${background}`,
+      isOpaqueBackground(background, source),
+      `nền thanh phải đục — đang là: ${background} (${opacityReason(background, source)})`,
     ).toBe(true);
     expect(background).toMatch(/var\(--surface\)/);
   });
@@ -221,32 +337,33 @@ describe("khối thông tin — không còn lớp kính nào có thể nằm tr�
 });
 
 describe("khối thông tin — CSS ĐÃ BUILD cũng phải sạch kính", () => {
-  const files = distCssFiles();
-  const run = files.length > 0 ? it : it.skip;
-
-  run("7. không `backdrop-filter` nào trên đường đi của thanh trong dist/assets/*.css", () => {
+  it("7. không `backdrop-filter` nào trên đường đi của thanh trong dist/assets/*.css", () => {
+    const files = loadDistCss();
     const offenders = [];
-    for (const file of files) {
-      const css = readFileSync(file, "utf8");
+    for (const { name, css } of files) {
       for (const rule of barRules(css)) {
         for (const prop of GLASS) {
           const value = decl(rule.body, prop);
-          if (value !== null) offenders.push(`${file.split("/").pop()} → ${rule.selector} { ${prop}: ${value} }`);
+          if (value !== null) offenders.push(`${name.split("/").pop()} → ${rule.selector} { ${prop}: ${value} }`);
         }
       }
     }
     expect(offenders, "bản build vẫn còn kính trên thanh (minifier giữ lại bản -webkit-)").toEqual([]);
   });
 
-  run("8. trong bản build, `.infobar` có nền đục và không có pseudo-element kính", () => {
-    for (const file of files) {
-      const css = readFileSync(file, "utf8");
+  it("8. trong bản build, `.infobar` có nền đục và không có pseudo-element kính", () => {
+    const files = loadDistCss();
+    for (const { name, css } of files) {
       const bar = bodyOf(css, ".infobar");
       if (bar === null) continue;
-      expect(isOpaqueBackground(decl(bar, "background") ?? decl(bar, "background-color"))).toBe(true);
+      const background = decl(bar, "background") ?? decl(bar, "background-color");
+      expect(
+        isOpaqueBackground(background, css),
+        `${name} — nền .infobar phải đục — đang là: ${background} (${opacityReason(background, css)})`,
+      ).toBe(true);
       expect(
         rules(css).some((r) => /^\.infobar::(before|after)$/.test(r.selector)),
-        `${file} còn .infobar::before/::after`,
+        `${name} còn .infobar::before/::after`,
       ).toBe(false);
     }
   });
