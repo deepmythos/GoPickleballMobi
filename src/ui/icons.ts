@@ -58,7 +58,7 @@ export type IconName = keyof typeof ICONS;
 const FACTOR_ICONS: Record<string, IconNode> = {
   rain_current: CloudRain,
   rain_probability: Umbrella,
-  rain_24h: CloudDrizzle,
+  rain_3h: CloudDrizzle,
   wind_speed: Wind,
   wind_gust: Zap,
   apparent_temperature: Thermometer,

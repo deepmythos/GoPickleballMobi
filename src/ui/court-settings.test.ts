@@ -92,6 +92,23 @@ function byAttr(root: FakeNode, name: string): FakeNode[] {
   return findAll(root, (node) => node.attrs[name] !== undefined);
 }
 
+/**
+ * Hình FULL trên màn hình chính (khối sân vừa dời khỏi sheet). Chọn đúng bằng
+ * svg.court-diagram[data-variant="full"] để không lẫn hình compact ở hàng "chói nắng".
+ */
+function fullDiagram(root: FakeNode): FakeNode {
+  const section = findAll(root, (node) => node.dataset.block === "court")[0];
+  if (!section) throw new Error("thiếu section[data-block=court]");
+  const svg = findAll(
+    section,
+    (node) =>
+      node.attrs["data-variant"] === "full" &&
+      (node.attrs.class ?? node.className).split(/\s+/).includes("court-diagram"),
+  )[0];
+  if (!svg) throw new Error('thiếu svg.court-diagram[data-variant="full"]');
+  return svg;
+}
+
 function rotationAngle(transform: string): number {
   const m = transform.match(/rotate\(([-\d.]+)/);
   return m ? Number.parseFloat(m[1]) : Number.NaN;
@@ -129,16 +146,30 @@ function makeEvaluation(sun: { azimuth: number; elevation: number }, isDay = 1):
     targetHour: TARGET_HOUR,
     utcOffsetMinutes: 120,
     localTime: TARGET_HOUR,
+    detailHour: TARGET_HOUR,
     point: makePoint({ is_day: isDay }),
     sun,
+    sunStart: sun,
+    sunEnd: sun,
     score: 80,
     verdict: "Nên đi",
+    range: {
+      from: TARGET_HOUR,
+      to: TARGET_HOUR,
+      spanHours: 0,
+      midpointHour: TARGET_HOUR,
+      hours: [{ hour: TARGET_HOUR, score: 80, verdict: "Nên đi" }],
+      score: 80,
+      verdict: "Nên đi",
+      countedHours: 1,
+      missingHours: [],
+    },
     factors: [],
     gates: [],
     missing: [],
     confidence: "high",
-    rain24h: 0,
-    rain24hComplete: true,
+    rain3h: 0,
+    rain3hComplete: true,
     aqi: null,
     pm25: null,
     pm10: null,
@@ -211,7 +242,7 @@ describe("sheet Cài đặt — hình sân đúng tỉ lệ + hướng nắng th
       const root = render(
         state({ sheet: openInputs(), evaluation: makeEvaluation(sun), location: { ...c, name: "x" } }),
       );
-      const svg = byClass(root, "court-diagram")[0];
+      const svg = fullDiagram(root);
       expect(svg, "thiếu svg.court-diagram").toBeDefined();
       const rotor = byAttr(root, "data-sun-rotor")[0];
       expect(rotor, "thiếu [data-sun-rotor]").toBeDefined();
@@ -228,7 +259,7 @@ describe("sheet Cài đặt — hình sân đúng tỉ lệ + hướng nắng th
     const root = render(
       state({ sheet: openInputs(), courtBearing: 0, evaluation: makeEvaluation(sunAt(TARGET_HOUR, DIETZENBACH)) }),
     );
-    const svg = byClass(root, "court-diagram")[0];
+    const svg = fullDiagram(root);
     expect(svg.attrs["data-court-bearing"]).toBe("0");
     const rotor = byAttr(root, "data-court-rotor")[0];
     expect(rotor.attrs.transform).toBe("rotate(0 0 0)");
@@ -266,7 +297,7 @@ describe("sheet Cài đặt — hình sân đúng tỉ lệ + hướng nắng th
       const root = render(
         state({ lang, sheet: openInputs(), evaluation: makeEvaluation(sunAt(TARGET_HOUR, DIETZENBACH)) }),
       );
-      const svg = byClass(root, "court-diagram")[0];
+      const svg = fullDiagram(root);
       expect(svg, `thiếu svg cho ${lang}`).toBeDefined();
       expect(svg.attrs.role).toBe("img");
       const label = svg.attrs["aria-label"];
@@ -289,13 +320,19 @@ describe("sheet Cài đặt — hình sân đúng tỉ lệ + hướng nắng th
     const root = render(
       state({ lang: "vi", sheet: openInputs(), evaluation: makeEvaluation(sunAt(TARGET_HOUR, DIETZENBACH)) }),
     );
-    const range = findAll(root, (n) => n.attrs.type === "range")[0];
-    expect(range, "thiếu input[type=range]").toBeDefined();
+    // Thanh trượt hướng sân là range KHÔNG mang class hour-range-handle (bộ chọn khoảng giờ).
+    const range = findAll(
+      root,
+      (n) =>
+        n.attrs.type === "range" &&
+        !(n.attrs.class ?? n.className).split(/\s+/).includes("hour-range-handle"),
+    )[0];
+    expect(range, "thiếu input[type=range] cho hướng sân").toBeDefined();
     const handler = range.listeners.input;
     expect(handler, "thiếu listener 'input'").toBeDefined();
     handler({ target: { value: "90" } });
 
-    const svg = byClass(root, "court-diagram")[0];
+    const svg = fullDiagram(root);
     const rotor = byAttr(root, "data-court-rotor")[0];
     const value = byClass(root, "bearing-value")[0];
     expect(svg.attrs["data-court-bearing"]).toBe("90");
@@ -306,8 +343,8 @@ describe("sheet Cài đặt — hình sân đúng tỉ lệ + hướng nắng th
   it("(f) mặt trời thấp → bóng dài hơn, đúng 0.86/tan(elevation)", () => {
     const high = render(state({ sheet: openInputs(), evaluation: makeEvaluation({ azimuth: 180, elevation: 55 }) }));
     const low = render(state({ sheet: openInputs(), evaluation: makeEvaluation({ azimuth: 180, elevation: 12 }) }));
-    const depthHigh = Number(byClass(high, "court-diagram")[0].attrs["data-shadow-depth-m"]);
-    const depthLow = Number(byClass(low, "court-diagram")[0].attrs["data-shadow-depth-m"]);
+    const depthHigh = Number(fullDiagram(high).attrs["data-shadow-depth-m"]);
+    const depthLow = Number(fullDiagram(low).attrs["data-shadow-depth-m"]);
     expect(depthLow).toBeGreaterThan(depthHigh);
     const expectedLow = 0.86 / Math.tan((12 * Math.PI) / 180);
     const expectedHigh = 0.86 / Math.tan((55 * Math.PI) / 180);
@@ -320,7 +357,7 @@ describe("sheet Cài đặt — hình sân đúng tỉ lệ + hướng nắng th
       const night = render(
         state({ lang, sheet: openInputs(), evaluation: makeEvaluation({ azimuth: 180, elevation: -3 }, 0) }),
       );
-      const nsvg = byClass(night, "court-diagram")[0];
+      const nsvg = fullDiagram(night);
       expect(nsvg.attrs["data-sun-state"]).toBe("night");
       expect(nsvg.attrs["data-shadow-depth-m"]).toBe("");
       expect(night.textContent).toContain(t(lang, "court.diagramNoSun"));
@@ -329,10 +366,10 @@ describe("sheet Cài đặt — hình sân đúng tỉ lệ + hướng nắng th
       const dark = render(
         state({ lang, sheet: openInputs(), evaluation: makeEvaluation({ azimuth: 180, elevation: 30 }, 0) }),
       );
-      expect(byClass(dark, "court-diagram")[0].attrs["data-sun-state"]).toBe("night");
+      expect(fullDiagram(dark).attrs["data-sun-state"]).toBe("night");
 
       const unknown = render(state({ lang, sheet: openInputs(), evaluation: null }));
-      const usvg = byClass(unknown, "court-diagram")[0];
+      const usvg = fullDiagram(unknown);
       expect(usvg.attrs["data-sun-state"]).toBe("unknown");
       expect(usvg.attrs["data-shadow-depth-m"]).toBe("");
     }
@@ -342,7 +379,7 @@ describe("sheet Cài đặt — hình sân đúng tỉ lệ + hướng nắng th
     const sun = sunAt(TARGET_HOUR, DIETZENBACH);
     const labels = LANGS.map((lang) => {
       const root = render(state({ lang, sheet: openInputs(), evaluation: makeEvaluation(sun) }));
-      return byClass(root, "court-diagram")[0].attrs["aria-label"];
+      return fullDiagram(root).attrs["aria-label"];
     });
     expect(new Set(labels).size).toBe(3);
   });

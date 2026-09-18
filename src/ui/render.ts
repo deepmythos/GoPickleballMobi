@@ -10,14 +10,15 @@ import {
 import { FACTOR_META } from "../scoring";
 import { APP_TIMEZONE, formatLocalISO, formatUtcOffset, getOffsetMinutes, zonedToUtc } from "../time";
 import { BUILD_ID, BUILD_TIME } from "../build";
-import type { Evaluation } from "../evaluate";
 import type { Lang } from "../types";
 import { unitText } from "../units";
-import { compassSector, courtDiagram, rotateCourtDiagram } from "./court-diagram";
+import { courtDiagram, resetCourtDiagrams } from "./court-diagram";
+import { renderCourtBlock, renderTimeBlock } from "./main-blocks";
 import { dragVisual, type SheetPanel } from "./sheet";
 import { factorIcon, gateIcon, makeIcon, ICONS } from "./icons";
 import { impactBar } from "./impact";
 import type { Actions, AppState } from "./state";
+import { diagramLabelFor, sunRangeView } from "./sun-range";
 import { parseCoordInput } from "./validate";
 
 type Child = Node | string | number | null | undefined | false;
@@ -131,27 +132,6 @@ function fetchedLabel(lang: Lang, iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
   return formatDateTime(lang, formatLocalISO(date, APP_TIMEZONE));
-}
-
-/**
- * Nhãn aria cho hình sân — DÙNG CHUNG cho sheet Cài đặt và hàng yếu tố trên màn hình chính.
- * Phương vị/cao độ truyền vào lấy nguyên từ evaluation.sun, không tính lại mặt trời.
- */
-function courtDiagramLabel(lang: Lang, ev: Evaluation | null, bearing: number): string {
-  const axis = Math.round(((bearing % 360) + 360) % 360) % 360;
-  const axisDir = t(lang, MSG(`compass.${compassSector(bearing)}`));
-  if (!ev) return t(lang, "court.diagramLabelUnknown", { axis, axisDir });
-  if (ev.point.is_day === 0 || ev.sun.elevation <= 0) {
-    return t(lang, "court.diagramLabelNight", { axis, axisDir });
-  }
-  return t(lang, "court.diagramLabel", {
-    axis,
-    axisDir,
-    sun: Math.round(ev.sun.azimuth),
-    sunDir: t(lang, MSG(`compass.${compassSector(ev.sun.azimuth)}`)),
-    alt: Math.round(ev.sun.elevation),
-    shadowDir: t(lang, MSG(`compass.${compassSector(ev.sun.azimuth + 180)}`)),
-  });
 }
 
 function factorSentence(lang: Lang, id: string, impact: number): string {
@@ -284,12 +264,17 @@ function renderFactors(state: AppState, actions: Actions, animate: boolean): HTM
       ),
     );
     if (isSunBearing) {
+      // Hình compact là hình PHỤ (64×64, không văn xuôi): cùng bearing, cùng sunRange và
+      // cùng nhãn aria dựng từ MỘT nguồn sunRangeView()/diagramLabelFor().
+      const rowRange = sunRangeView(state, ev.range.from, ev.range.to);
       const rowDiagram = courtDiagram({
         bearing: state.courtBearing,
         sun: ev ? { azimuth: ev.sun.azimuth, elevation: ev.sun.elevation } : null,
+        sunRange: rowRange,
         isDay: ev ? ev.point.is_day !== 0 : undefined,
         variant: "compact",
-        ariaLabel: courtDiagramLabel(lang, ev, state.courtBearing),
+        ariaLabel: diagramLabelFor(state, state.courtBearing, rowRange),
+        ariaLabelFor: (bearing, range) => diagramLabelFor(state, bearing, range),
         northLabel: t(lang, "compass.n"),
         noSunLabel: t(lang, "court.diagramNoSun"),
       });
@@ -375,6 +360,7 @@ function renderRaw(state: AppState, actions: Actions): HTMLElement {
     stat(t(lang, "raw.precipitation"), u(p.precipitation, t(lang, "unit.mm"), { maximumFractionDigits: 1 })),
     stat(t(lang, "raw.precipProbability"), u(p.precipitation_probability, t(lang, "unit.percent"))),
     stat(t(lang, "raw.rain"), u(p.rain, t(lang, "unit.mm"), { maximumFractionDigits: 1 })),
+    stat(t(lang, "raw.rain3h"), u(ev.rain3h, t(lang, "unit.mm"), { maximumFractionDigits: 1 })),
     stat(t(lang, "raw.weatherCode"), weatherText(lang, p.weather_code)),
     stat(t(lang, "raw.cloudCover"), u(p.cloud_cover, t(lang, "unit.percent"))),
     stat(t(lang, "raw.visibility"), visibility(p.visibility)),
@@ -507,7 +493,7 @@ function renderBanner(state: AppState): HTMLElement | null {
   }
   if (ev.missing.length > 0) {
     const missingLabels = ev.missing
-      .map((id) => (id === "rain_24h_partial" ? t(lang, "factor.rain_24h") : t(lang, MSG(`factor.${id}`))))
+      .map((id) => (id === "rain_3h_partial" ? t(lang, "factor.rain_3h") : t(lang, MSG(`factor.${id}`))))
       .join(", ");
     parts.push(
       h(
@@ -864,79 +850,7 @@ function renderBuildBlock(state: AppState, actions: Actions): HTMLElement {
 
 function renderInputsSheet(state: AppState, actions: Actions): HTMLElement[] {
   const lang = state.lang;
-  const bearingValue = h("span", {
-    class: "bearing-value",
-    text: `${formatNumber(lang, state.courtBearing)}${t(lang, "unit.deg")}`,
-  });
-  const ev = state.evaluation;
-  const courtSvg = courtDiagram({
-    bearing: state.courtBearing,
-    sun: ev ? { azimuth: ev.sun.azimuth, elevation: ev.sun.elevation } : null,
-    isDay: ev ? ev.point.is_day !== 0 : undefined,
-    variant: "full",
-    ariaLabel: courtDiagramLabel(lang, ev, state.courtBearing),
-    northLabel: t(lang, "compass.n"),
-    noSunLabel: t(lang, "court.diagramNoSun"),
-  });
   return [
-    // Khối phiên bản đứng ĐẦU sheet (ngay sau h2.sheet-title) để luôn thấy mà không phải cuộn.
-    renderBuildBlock(state, actions),
-    h(
-      "div",
-      { class: "setting-block" },
-      h("span", { class: "field-label", text: t(lang, "time.title") }),
-      field(
-        t(lang, "time.label"),
-        h("input", {
-          type: "datetime-local",
-          class: "input",
-          step: "3600",
-          value: state.atInput,
-          oninput: (e: Event) => actions.setAtInput((e.target as HTMLInputElement).value),
-          onfocus: focusScroll,
-        }),
-      ),
-      h(
-        "button",
-        { class: "btn ghost full", type: "button", onclick: actions.useNextHour },
-        makeIcon(ICONS.calendar, 16),
-        h("span", { text: t(lang, "time.nextHour") }),
-      ),
-      h("p", { class: "sheet-note", text: `${t(lang, "time.local")}: ${APP_TIMEZONE}` }),
-      state.applyErrorKey === "time.invalidTime"
-        ? h("p", { class: "sheet-note error-text apply-error", text: t(lang, "time.invalidTime") })
-        : null,
-      h("button", { class: "btn primary full", type: "button", onclick: actions.applyTime }, t(lang, "time.apply")),
-    ),
-    h(
-      "div",
-      { class: "setting-block" },
-      h("span", { class: "field-label", text: t(lang, "court.title") }),
-      h(
-        "div",
-        { class: "bearing-row" },
-        h("input", {
-          type: "range",
-          min: "0",
-          max: "359",
-          step: "1",
-          value: String(state.courtBearing),
-          class: "range",
-          "aria-label": t(lang, "court.bearing"),
-          // Cập nhật nhãn VÀ xoay hình ngay khi kéo (KHÔNG render lại DOM giữa cử chỉ),
-          // chỉ chốt state lúc nhả tay để thanh trượt không bị huỷ.
-          oninput: (e: Event) => {
-            const value = Number((e.target as HTMLInputElement).value);
-            bearingValue.textContent = `${formatNumber(lang, value)}${t(lang, "unit.deg")}`;
-            rotateCourtDiagram(courtSvg, value, courtDiagramLabel(lang, ev, value));
-          },
-          onchange: (e: Event) => actions.setBearing(Number((e.target as HTMLInputElement).value)),
-          onfocus: focusScroll,
-        }),
-        bearingValue,
-      ),
-      courtSvg,
-    ),
     h(
       "div",
       { class: "setting-block" },
@@ -997,6 +911,9 @@ function renderInputsSheet(state: AppState, actions: Actions): HTMLElement[] {
       makeIcon(ICONS.mapPin, 16),
       h("span", { text: t(lang, "header.changeLocation") }),
     ),
+    // Khối phiên bản nằm CUỐI sheet (theo yêu cầu chủ dự án): muốn thấy thì cuộn `.sheet`
+    // xuống đáy. Vẫn render VÔ ĐIỀU KIỆN, không phụ thuộc trạng thái cập nhật.
+    renderBuildBlock(state, actions),
   ];
 }
 
@@ -1055,6 +972,8 @@ function renderSheet(state: AppState, actions: Actions): HTMLElement | null {
 
 export function renderApp(root: HTMLElement, state: AppState, actions: Actions): void {
   root.textContent = "";
+  // DOM vừa bị xoá: quên mọi <svg> của lần render trước trước khi dựng cái mới.
+  resetCourtDiagrams();
   const ev = state.evaluation;
   const animate = ev !== null && !revealed;
 
@@ -1064,6 +983,9 @@ export function renderApp(root: HTMLElement, state: AppState, actions: Actions):
     renderUpdateBanner(state, actions),
     renderBanner(state),
     ev ? renderHero(state, animate) : renderStatus(state, actions),
+    // hai khối dời từ sheet Cài đặt; đổi thứ tự = đổi hai dòng này
+    renderTimeBlock(state, actions),
+    renderCourtBlock(state, actions),
     ev ? renderFactors(state, actions, animate) : renderInfo(state, actions),
     ev ? renderRaw(state, actions) : null,
   );

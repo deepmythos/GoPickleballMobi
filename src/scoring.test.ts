@@ -6,7 +6,7 @@ function input(overrides: Partial<ScoreInput> = {}): ScoreInput {
   return {
     rainCurrent: 0,
     rainProbability: 0,
-    rain24h: 0,
+    rain3h: 0,
     windSpeed: 5,
     windGust: 10,
     apparentTemperature: 22,
@@ -37,7 +37,7 @@ describe("scoreConditions", () => {
       input({
         rainCurrent: 3,
         rainProbability: 95,
-        rain24h: 12,
+        rain3h: 12,
         windSpeed: 30,
         windGust: 65,
         apparentTemperature: 10,
@@ -87,7 +87,7 @@ describe("scoreConditions", () => {
   });
 
   it("5. a soaked court after heavy rain is capped", () => {
-    const result = scoreConditions(input({ rain24h: 14 }));
+    const result = scoreConditions(input({ rain3h: 14 }));
     expect(result.gates).toContain("wet");
     expect(result.score).toBeLessThanOrEqual(35);
     expect(result.verdict).toBe("Không nên");
@@ -161,7 +161,7 @@ describe("playabilityGates", () => {
   it("returns the expected gates", () => {
     expect(
       playabilityGates(
-        input({ isDay: 0, rainCurrent: 3, windGust: 70, apparentTemperature: 36, rain24h: 20 }),
+        input({ isDay: 0, rainCurrent: 3, windGust: 70, apparentTemperature: 36, rain3h: 20 }),
       ),
     ).toEqual(expect.arrayContaining(["night", "rain", "gust", "heat", "wet"]));
   });

@@ -541,6 +541,22 @@ body {
   color: var(--muted);
 }
 
+/* Hai khối dời từ sheet Cài đặt lên màn hình chính: giữ nhịp dọc như mọi .section,
+   canh giữa hình full và chặn tràn ngang ở bề rộng 390/428. */
+section[data-block] {
+  gap: var(--space-3);
+}
+
+section[data-block="court"] .bearing-row {
+  min-height: 44px;
+}
+
+section[data-block] svg.court-diagram {
+  align-self: center;
+  max-width: 100%;
+  height: auto;
+}
+
 /* ----------------------------------------------------------------- gates */
 
 .gates {
@@ -1277,6 +1293,87 @@ body {
   font-size: var(--fs-lg);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+
+/* Bộ chọn khoảng giờ: hai tay nắm 44×44 px, đủ lớn để kéo bằng một ngón.
+   Phải TẮT giao diện gốc của range thì kích thước thumb mới có tác dụng trên Chromium. */
+.hour-range {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.hour-range-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.hour-range-handle {
+  flex: 1;
+  height: 44px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  accent-color: var(--good);
+}
+
+.hour-range-handle::-webkit-slider-runnable-track {
+  height: 44px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(
+    to bottom,
+    transparent calc(50% - 2px),
+    var(--border) calc(50% - 2px),
+    var(--border) calc(50% + 2px),
+    transparent calc(50% + 2px)
+  );
+}
+
+.hour-range-handle::-moz-range-track {
+  height: 44px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(
+    to bottom,
+    transparent calc(50% - 2px),
+    var(--border) calc(50% - 2px),
+    var(--border) calc(50% + 2px),
+    transparent calc(50% + 2px)
+  );
+}
+
+.hour-range-handle::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 50%;
+  background: var(--good);
+}
+
+.hour-range-handle::-moz-range-thumb {
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 50%;
+  background: var(--good);
+}
+
+.hour-range-value {
+  min-width: 56px;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.hour-range-span,
+.hour-range-score {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--muted);
 }
 
 .toggle-row {

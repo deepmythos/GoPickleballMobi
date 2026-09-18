@@ -11,7 +11,7 @@ function input(overrides: Partial<ScoreInput> = {}): ScoreInput {
   return {
     rainCurrent: 0,
     rainProbability: 0,
-    rain24h: 0,
+    rain3h: 0,
     windSpeed: 5,
     windGust: 10,
     apparentTemperature: 22,

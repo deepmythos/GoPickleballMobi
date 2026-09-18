@@ -16,18 +16,19 @@ import {
   savePreferences,
   saveReading,
 } from "./cache";
-import { evaluate, NoTargetHourError, type Evaluation } from "./evaluate";
+import { evaluate, NoTargetHourError, RAIN_WINDOW_HOURS, type Evaluation } from "./evaluate";
 import { BUILD_ID, BUILD_TIME } from "./build";
 import { applyUpdate, checkForUpdate, initPwa } from "./pwa";
 import { isLang, t } from "./i18n";
-import { APP_TIMEZONE, ceilToHour, formatLocalISO } from "./time";
+import { APP_TIMEZONE, formatLocalISO } from "./time";
 import type { BaseUrls, GeoLocation, Lang } from "./types";
+import { windowFromParams } from "./window";
 import { hostOf, renderApp } from "./ui/render";
 import { createSwipeLatch, isExcludedTouchTarget, isHorizontalDominant, type SwipeSample } from "./ui/gesture";
 import { touchTargetTraits } from "./ui/hit";
 import { dragVisual, initialSheetState, isSheetOpen, sheetReducer, type SheetAction } from "./ui/sheet";
 import { resolveTheme, themeAttribute, THEME_STORAGE_KEY } from "./ui/theme";
-import { validateAtInput, validateDraftLocation } from "./ui/validate";
+import { validateDraftLocation, validateRangeInput } from "./ui/validate";
 import type { Actions, AppState, ThemeChoice } from "./ui/state";
 
 const DEFAULT_LOCATION: GeoLocation = {
@@ -41,6 +42,8 @@ interface WindowVerdict {
   score: number | null;
   verdict: string | null;
   localTime: string;
+  /** Giờ mà khối point/factors/sun thực sự thuộc về (có thể khác giờ giữa khoảng). */
+  detailHour: string;
   utcOffsetMinutes: number;
   location: { lat: number; lon: number; name: string };
   factors: { id: string; value: number; unit: string; impact: number }[];
@@ -49,7 +52,21 @@ interface WindowVerdict {
   confidence?: string;
   missing?: string[];
   gates?: string[];
+  rain3h?: number | null;
+  rainWindowHours?: number;
   stale?: boolean;
+  /** Chi tiết cửa sổ giờ: trung bình cộng, từng giờ, giờ thiếu, giờ giữa. */
+  range?: {
+    from: string;
+    to: string;
+    spanHours: number;
+    midpointHour: string;
+    hours: { hour: string; score: number; verdict: string }[];
+    score: number | null;
+    verdict: string | null;
+    countedHours: number;
+    missingHours: string[];
+  };
 }
 
 declare global {
@@ -115,8 +132,10 @@ function initialiseState(params: URLSearchParams): AppState {
   const nowParam = params.get("now");
   const nowLocal = nowParam ? nowParam.slice(0, 16) : formatLocalISO(new Date(), APP_TIMEZONE);
 
-  const atParam = params.get("at");
-  const targetHour = atParam ? `${atParam.slice(0, 13)}:00` : ceilToHour(nowLocal);
+  // Cửa sổ đánh giá đọc chung một hàm thuần với test: from/to, tương thích `at`, hoặc mặc định 2 giờ.
+  const initialWindow = windowFromParams(params, nowLocal);
+  const targetHour = initialWindow.from;
+  const toHour = initialWindow.to;
 
   const theme = readTheme();
   applyTheme(theme);
@@ -125,6 +144,7 @@ function initialiseState(params: URLSearchParams): AppState {
     lang,
     location,
     targetHour,
+    toHour,
     nowLocal,
     courtBearing,
     lights,
@@ -145,6 +165,7 @@ function initialiseState(params: URLSearchParams): AppState {
     searchQuery: "",
     draft: { ...location },
     atInput: targetHour,
+    toInput: toHour,
     applyErrorKey: null,
     theme,
     offline: typeof navigator !== "undefined" && navigator.onLine === false,
@@ -182,7 +203,8 @@ function start(): void {
     next.set("lat", String(state.location.lat));
     next.set("lon", String(state.location.lon));
     next.set("name", state.location.name);
-    next.set("at", state.targetHour);
+    next.set("from", state.targetHour);
+    next.set("to", state.toHour ?? state.targetHour);
     next.set("lang", state.lang);
     next.set("courtBearing", String(state.courtBearing));
     if (next.get("now") === null && params.get("now")) next.set("now", params.get("now") as string);
@@ -221,6 +243,7 @@ function start(): void {
       score: ev.score,
       verdict: ev.verdict,
       localTime: ev.localTime,
+      detailHour: ev.localTime,
       utcOffsetMinutes: ev.utcOffsetMinutes,
       location: {
         lat: state.location.lat,
@@ -235,7 +258,20 @@ function start(): void {
       confidence: ev.confidence,
       missing: ev.missing,
       gates: ev.gates,
+      rain3h: ev.rain3h,
+      rainWindowHours: RAIN_WINDOW_HOURS,
       stale: state.stale,
+      range: {
+        from: ev.range.from,
+        to: ev.range.to,
+        spanHours: ev.range.spanHours,
+        midpointHour: ev.range.midpointHour,
+        hours: ev.range.hours.map((h) => ({ hour: h.hour, score: h.score, verdict: h.verdict })),
+        score: ev.range.score,
+        verdict: ev.range.verdict,
+        countedHours: ev.range.countedHours,
+        missingHours: ev.range.missingHours,
+      },
     };
   }
 
@@ -244,6 +280,7 @@ function start(): void {
       score: null,
       verdict: null,
       localTime: state.targetHour,
+      detailHour: state.targetHour,
       utcOffsetMinutes: 0,
       location: {
         lat: state.location.lat,
@@ -274,6 +311,7 @@ function start(): void {
         forecast: state.forecast,
         air: state.air,
         targetHour: state.targetHour,
+        toHour: state.toHour ?? state.targetHour,
         courtBearing: state.courtBearing,
         lights: state.lights,
         baseUrls: state.baseUrls,
@@ -291,6 +329,27 @@ function start(): void {
       state.error = message;
       publishError(message);
     }
+  }
+
+  /**
+   * Trình tự DUY NHẤT khi chốt một cửa sổ giờ: validate -> gán state -> URL -> tính lại.
+   * Trả về true khi áp dụng được; khi lỗi đã đặt applyErrorKey và render().
+   */
+  function applyRange(fromValue: string, toValue: string): boolean {
+    const result = validateRangeInput(fromValue, toValue);
+    if (!result.ok) {
+      state.applyErrorKey = result.errorKey;
+      render();
+      return false;
+    }
+    state.applyErrorKey = null;
+    state.targetHour = result.from;
+    state.toHour = result.to;
+    state.atInput = result.from;
+    state.toInput = result.to;
+    updateUrl();
+    recompute();
+    return true;
   }
 
   async function loadData(): Promise<void> {
@@ -398,6 +457,7 @@ function start(): void {
       } else {
         openerSelector = ".actionbar-adjust";
         state.atInput = state.targetHour;
+        state.toInput = state.toHour ?? state.targetHour;
       }
       runSheetActions({ type: "open", panel });
     },
@@ -513,26 +573,14 @@ function start(): void {
         { enableHighAccuracy: false, timeout: 10000 },
       );
     },
-    setAtInput(value) {
-      state.atInput = value;
+    setHourRange(from, to) {
+      if (applyRange(from, to)) render();
     },
     applyTime() {
-      const result = validateAtInput(state.atInput);
-      if (!result.ok) {
-        state.applyErrorKey = result.errorKey;
-        render();
-        return;
+      // Khoảng nhập từ bộ chọn: nếu thiếu `to` thì coi như cửa sổ suy biến một giờ.
+      if (applyRange(state.atInput, state.toInput ?? state.atInput)) {
+        runSheetActions({ type: "close" });
       }
-      state.applyErrorKey = null;
-      state.targetHour = result.targetHour;
-      state.atInput = result.targetHour;
-      updateUrl();
-      recompute();
-      runSheetActions({ type: "close" });
-    },
-    useNextHour() {
-      state.atInput = ceilToHour(state.nowLocal);
-      render();
     },
     refresh() {
       void loadData();

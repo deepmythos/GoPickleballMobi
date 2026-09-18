@@ -2,6 +2,7 @@ import type { AirQualityData, ForecastData } from "./api";
 import { scoreConditions } from "./scoring";
 import { solarPosition } from "./sun";
 import { APP_TIMEZONE, getOffsetMinutes, zonedToUtc } from "./time";
+import { aggregateWindow, midpointHourOf, windowHours, type HourScore, type WindowRange } from "./window";
 import type {
   BaseUrls,
   Confidence,
@@ -17,7 +18,10 @@ export interface EvaluateParams {
   location: GeoLocation;
   forecast: ForecastData;
   air: AirQualityData | null;
+  /** Giờ BẮT ĐẦU của cửa sổ đánh giá (trước đây là giờ duy nhất được đánh giá). */
   targetHour: string;
+  /** Giờ KẾT THÚC; bỏ trống = cửa sổ suy biến một giờ (hành vi cũ nguyên vẹn). */
+  toHour?: string;
   courtBearing: number;
   lights: boolean;
   baseUrls: BaseUrls;
@@ -26,19 +30,35 @@ export interface EvaluateParams {
 }
 
 export interface Evaluation {
+  /** Giờ bắt đầu cửa sổ. */
   targetHour: string;
   utcOffsetMinutes: number;
+  /**
+   * Giờ mà khối chi tiết bên dưới (point/factors/gates/sun/…) thực sự thuộc về.
+   * Thường là giờ GIỮA cửa sổ (D4), nhưng nếu giữa khoảng thiếu dữ liệu thì lùi về
+   * giờ có dữ liệu đầu tiên — vì vậy `range.midpointHour` có thể KHÁC `detailHour`.
+   */
   localTime: string;
+  /** Giờ của khối chi tiết; bằng `localTime`, tách tên để nơi đọc không nhầm với giờ giữa khoảng. */
+  detailHour: string;
   point: HourlyPoint;
   sun: SunPosition;
+  /** Mặt trời tại giờ BẮT ĐẦU của cửa sổ (vẽ đầu cung chuyển động). */
+  sunStart: SunPosition;
+  /** Mặt trời tại giờ KẾT THÚC của cửa sổ (vẽ cuối cung chuyển động). */
+  sunEnd: SunPosition;
+  /** Điểm TRUNG BÌNH CỘNG của cả cửa sổ (range.score). */
   score: number;
+  /** classify(range.score) — dải của cả cửa sổ. */
   verdict: VerdictLabel;
+  /** Chi tiết cửa sổ: mean, từng giờ, giờ thiếu, giờ giữa. */
+  range: WindowRange;
   factors: FactorResult[];
   gates: string[];
   missing: string[];
   confidence: Confidence;
-  rain24h: number | null;
-  rain24hComplete: boolean;
+  rain3h: number | null;
+  rain3hComplete: boolean;
   aqi: number | null;
   pm25: number | null;
   pm10: number | null;
@@ -62,8 +82,18 @@ function findHourIndex(times: string[], targetHour: string): number {
   return -1;
 }
 
-function sumRainBefore(hourly: HourlyPoint[], index: number): { sum: number; complete: boolean } {
-  const start = Math.max(0, index - 24);
+/**
+ * Cửa sổ mưa là ba bucket giờ NGAY TRƯỚC giờ được đánh giá: t-3, t-2, t-1.
+ * Không bao gồm giờ t. Đây là nơi DUY NHẤT định nghĩa kích thước cửa sổ mưa.
+ */
+export const RAIN_WINDOW_HOURS = 3;
+
+/**
+ * Tổng lượng mưa của RAIN_WINDOW_HOURS bucket ngay trước `index` (t-3, t-2, t-1).
+ * Chỉ nơi này biết kích thước cửa sổ; mọi consumer (điểm + cổng ướt) dùng chung.
+ */
+export function rainWindowSum(hourly: HourlyPoint[], index: number): { sum: number; complete: boolean } {
+  const start = Math.max(0, index - RAIN_WINDOW_HOURS);
   let sum = 0;
   let count = 0;
   for (let i = start; i < index; i++) {
@@ -73,14 +103,17 @@ function sumRainBefore(hourly: HourlyPoint[], index: number): { sum: number; com
       count++;
     }
   }
-  return { sum: Math.round(sum * 100) / 100, complete: index >= 24 && count === 24 };
+  return {
+    sum: Math.round(sum * 100) / 100,
+    complete: index >= RAIN_WINDOW_HOURS && count === RAIN_WINDOW_HOURS,
+  };
 }
 
 function deriveConfidence(missing: string[], stale: boolean): Confidence {
   if (stale) return "low";
   const core = [
     "rain_current",
-    "rain_24h",
+    "rain_3h",
     "wind_gust",
     "apparent_temperature",
     "visibility",
@@ -92,26 +125,44 @@ function deriveConfidence(missing: string[], stale: boolean): Confidence {
   return "high";
 }
 
-export function evaluate(params: EvaluateParams): Evaluation {
-  const { forecast, air, targetHour } = params;
-  const index = findHourIndex(
-    forecast.hourly.map((p) => p.time),
-    targetHour,
-  );  if (index < 0) throw new NoTargetHourError(targetHour);
+/** Toàn bộ chi tiết của MỘT giờ trong cửa sổ. `hourScore` là phần đưa vào mean. */
+interface HourDetail {
+  hourScore: HourScore;
+  point: HourlyPoint;
+  sun: SunPosition;
+  utcOffsetMinutes: number;
+  factors: FactorResult[];
+  gates: string[];
+  missing: string[];
+  confidence: Confidence;
+  rain3h: number | null;
+  rain3hComplete: boolean;
+  aqi: number | null;
+  pm25: number | null;
+  pm10: number | null;
+  sunrise: string | null;
+  sunset: string | null;
+}
 
+/**
+ * Tính trọn một giờ: cùng ScoreInput, cùng luật rainWindowSum, cùng gate như bản
+ * một-giờ trước đây. Đây là khối được gọi cho MỌI giờ của cửa sổ ở bước 1.
+ */
+function computeHour(params: EvaluateParams, hour: string, index: number): HourDetail {
+  const { forecast, air } = params;
   const point = forecast.hourly[index];
 
-  const targetDate = zonedToUtc(targetHour, APP_TIMEZONE);
+  const targetDate = zonedToUtc(hour, APP_TIMEZONE);
   const sun = solarPosition(targetDate, params.location.lat, params.location.lon);
   const utcOffsetMinutes = getOffsetMinutes(targetDate, APP_TIMEZONE);
 
-  const rain24 = sumRainBefore(forecast.hourly, index);
+  const rain3h = rainWindowSum(forecast.hourly, index);
 
   let aqi: number | null = null;
   let pm25: number | null = null;
   let pm10: number | null = null;
   if (air) {
-    const ai = findHourIndex(air.hourly.time, targetHour);
+    const ai = findHourIndex(air.hourly.time, hour);
     if (ai >= 0) {
       aqi = air.hourly.european_aqi[ai] ?? null;
       pm25 = air.hourly.pm2_5[ai] ?? null;
@@ -119,14 +170,14 @@ export function evaluate(params: EvaluateParams): Evaluation {
     }
   }
 
-  const dailyIndex = forecast.daily.time.indexOf(targetHour.slice(0, 10));
+  const dailyIndex = forecast.daily.time.indexOf(hour.slice(0, 10));
   const sunrise = dailyIndex >= 0 ? (forecast.daily.sunrise[dailyIndex] ?? null) : null;
   const sunset = dailyIndex >= 0 ? (forecast.daily.sunset[dailyIndex] ?? null) : null;
 
   const input: ScoreInput = {
     rainCurrent: point.precipitation ?? point.rain,
     rainProbability: point.precipitation_probability,
-    rain24h: rain24.sum,
+    rain3h: rain3h.sum,
     windSpeed: point.wind_speed_10m,
     windGust: point.wind_gusts_10m,
     apparentTemperature: point.apparent_temperature,
@@ -144,29 +195,86 @@ export function evaluate(params: EvaluateParams): Evaluation {
   const result = scoreConditions(input);
 
   const missing = [...result.missing];
-  if (!rain24.complete) missing.push("rain_24h_partial");
+  if (!rain3h.complete) missing.push("rain_3h_partial");
   if (air === null) missing.push("european_aqi");
   const uniqueMissing = [...new Set(missing)];
 
   return {
-    targetHour,
-    localTime: targetHour,
-    utcOffsetMinutes,
+    hourScore: { hour, score: result.score, verdict: result.verdict },
     point,
     sun,
-    score: result.score,
-    verdict: result.verdict,
+    utcOffsetMinutes,
     factors: result.factors,
     gates: result.gates,
     missing: uniqueMissing,
     confidence: deriveConfidence(uniqueMissing, Boolean(params.stale)),
-    rain24h: rain24.sum,
-    rain24hComplete: rain24.complete,
+    rain3h: rain3h.sum,
+    rain3hComplete: rain3h.complete,
     aqi,
     pm25,
     pm10,
     sunrise,
     sunset,
+  };
+}
+
+export function evaluate(params: EvaluateParams): Evaluation {
+  const from = params.targetHour;
+  // Không có `toHour` => cửa sổ suy biến một giờ: y hệt hành vi một-giờ cũ.
+  const to = params.toHour ?? params.targetHour;
+
+  // Bước 1: chấm điểm TỪNG giờ có dữ liệu trong cửa sổ.
+  const times = params.forecast.hourly.map((p) => p.time);
+  const perHour: HourDetail[] = [];
+  for (const hour of windowHours(from, to)) {
+    const index = findHourIndex(times, hour);
+    if (index < 0) continue;
+    perHour.push(computeHour(params, hour, index));
+  }
+
+  // Chỉ khi CẢ cửa sổ không có dữ liệu mới là lỗi; thiếu vài giờ chỉ bị loại khỏi mean.
+  if (perHour.length === 0) throw new NoTargetHourError(from);
+
+  // Bước 2: gộp cửa sổ bằng trung bình cộng (nơi duy nhất định nghĩa luật: ./window).
+  const range = aggregateWindow(from, to, perHour.map((detail) => detail.hourScore));
+
+  // Chi tiết point/factors/gates/… thuộc giờ GIỮA cửa sổ. Nếu giữa khoảng thiếu dữ liệu
+  // (dự báo không phủ hết cửa sổ) thì lùi về giờ có dữ liệu đầu tiên, để không ném lỗi.
+  const midpoint = midpointHourOf(from, to);
+  const detail =
+    perHour.find((entry) => entry.hourScore.hour.slice(0, 16) === midpoint.slice(0, 16)) ?? perHour[0];
+
+  const score = range.score ?? detail.hourScore.score;
+  const verdict = range.verdict ?? detail.hourScore.verdict;
+
+  // Vị trí mặt trời ở HAI ĐẦU cửa sổ, để hình sân vẽ được cung chuyển động.
+  // Dùng đúng solarPosition(zonedToUtc(hour)) như từng giờ — không phát minh công thức mới.
+  const sunStart = solarPosition(zonedToUtc(from, APP_TIMEZONE), params.location.lat, params.location.lon);
+  const sunEnd = solarPosition(zonedToUtc(to, APP_TIMEZONE), params.location.lat, params.location.lon);
+
+  return {
+    targetHour: from,
+    localTime: detail.hourScore.hour,
+    detailHour: detail.hourScore.hour,
+    utcOffsetMinutes: detail.utcOffsetMinutes,
+    point: detail.point,
+    sun: detail.sun,
+    sunStart,
+    sunEnd,
+    score,
+    verdict,
+    range,
+    factors: detail.factors,
+    gates: detail.gates,
+    missing: detail.missing,
+    confidence: detail.confidence,
+    rain3h: detail.rain3h,
+    rain3hComplete: detail.rain3hComplete,
+    aqi: detail.aqi,
+    pm25: detail.pm25,
+    pm10: detail.pm10,
+    sunrise: detail.sunrise,
+    sunset: detail.sunset,
     dataSource: { forecastBase: params.baseUrls.forecastBase, fetchedAt: params.fetchedAt },
   };
 }

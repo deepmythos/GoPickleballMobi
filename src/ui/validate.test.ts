@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseCoordInput, validateAtInput, validateDraftLocation } from "./validate";
+import { parseCoordInput, validateAtInput, validateDraftLocation, validateRangeInput } from "./validate";
 
 describe("parseCoordInput", () => {
   it("ô trống trả NaN, KHÔNG được hoá thành 0", () => {
@@ -109,5 +109,44 @@ describe("validateAtInput", () => {
     const result = validateAtInput("2026-09-18T14:37");
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.targetHour).toBe("2026-09-18T14:00");
+  });
+});
+
+describe("validateRangeInput", () => {
+  it("chấp nhận khoảng hợp lệ và chuẩn hoá về đầu giờ", () => {
+    const result = validateRangeInput("2026-09-18T16:00", "2026-09-18T18:00");
+    expect(result).toEqual({ ok: true, from: "2026-09-18T16:00", to: "2026-09-18T18:00" });
+    const normalized = validateRangeInput("2026-09-18T16:37", "2026-09-18T18:12");
+    expect(normalized).toEqual({ ok: true, from: "2026-09-18T16:00", to: "2026-09-18T18:00" });
+  });
+
+  it("chấp nhận cửa sổ suy biến (from = to)", () => {
+    const result = validateRangeInput("2026-09-18T16:00", "2026-09-18T16:00");
+    expect(result).toEqual({ ok: true, from: "2026-09-18T16:00", to: "2026-09-18T16:00" });
+  });
+
+  it("từ chối khi `to` đứng trước `from`", () => {
+    const result = validateRangeInput("2026-09-18T18:00", "2026-09-18T16:00");
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errorKey).toBe("time.invalidTime");
+      expect("from" in result).toBe(false);
+    }
+  });
+
+  it("từ chối khoảng dài hơn 24 giờ", () => {
+    const result = validateRangeInput("2026-09-18T00:00", "2026-09-20T00:00");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.errorKey).toBe("time.invalidTime");
+    // Đúng 24 giờ vẫn hợp lệ.
+    const border = validateRangeInput("2026-09-18T00:00", "2026-09-19T00:00");
+    expect(border).toEqual({ ok: true, from: "2026-09-18T00:00", to: "2026-09-19T00:00" });
+  });
+
+  it("từ chối đầu mút rỗng hoặc sai định dạng", () => {
+    expect(validateRangeInput("", "2026-09-18T18:00").ok).toBe(false);
+    expect(validateRangeInput("2026-09-18T16:00", "").ok).toBe(false);
+    expect(validateRangeInput("2026-09-18", "2026-09-18T18:00").ok).toBe(false);
+    expect(validateRangeInput("abc", "def").ok).toBe(false);
   });
 });

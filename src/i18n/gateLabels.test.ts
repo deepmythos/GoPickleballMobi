@@ -13,7 +13,7 @@ import type { ScoreInput } from "../types";
 const BASE: ScoreInput = {
   rainCurrent: 0,
   rainProbability: 0,
-  rain24h: 0,
+  rain3h: 0,
   windSpeed: 5,
   windGust: 10,
   apparentTemperature: 22,
@@ -34,7 +34,7 @@ const GATE_FIXTURES: Record<GateId, ScoreInput> = {
   gust: { ...BASE, windGust: 65 },
   heat: { ...BASE, apparentTemperature: 36 },
   cold: { ...BASE, apparentTemperature: -6 },
-  wet: { ...BASE, rain24h: 20 },
+  wet: { ...BASE, rain3h: 20 },
 };
 
 const LANGS = ["vi", "de", "en"] as const;

@@ -1,6 +1,7 @@
 // Validation THUẦN cho dữ liệu người dùng nhập trước khi "Áp dụng".
-// Không phụ thuộc DOM, không import gì ngoài type — dễ test và tất định.
+// Không phụ thuộc DOM; chỉ dùng thêm hàm thuần hourDiff từ ../time.
 
+import { hourDiff } from "../time";
 import type { GeoLocation } from "../types";
 
 export type ApplyErrorKey = "location.invalidCoords" | "time.invalidTime";
@@ -63,4 +64,24 @@ export function validateAtInput(
     return { ok: false, errorKey: "time.invalidTime" };
   }
   return { ok: true, targetHour: `${value.slice(0, 13)}:00` };
+}
+
+/**
+ * Kiểm tra CẢ HAI đầu của cửa sổ giờ trước khi áp dụng. Mỗi đầu phải là mốc giờ hợp lệ;
+ * `to` không được đứng trước `from` và cửa sổ không được dài quá 24 giờ. Vi phạm ->
+ * `time.invalidTime`. Khi hợp lệ trả object MỚI đã chuẩn hoá về "YYYY-MM-DDTHH:00".
+ */
+export function validateRangeInput(
+  fromValue: string,
+  toValue: string,
+): { ok: true; from: string; to: string } | { ok: false; errorKey: ApplyErrorKey } {
+  const from = validateAtInput(fromValue);
+  if (!from.ok) return from;
+  const to = validateAtInput(toValue);
+  if (!to.ok) return to;
+  const span = hourDiff(to.targetHour, from.targetHour);
+  if (!Number.isFinite(span) || span < 0 || span > 24) {
+    return { ok: false, errorKey: "time.invalidTime" };
+  }
+  return { ok: true, from: from.targetHour, to: to.targetHour };
 }
