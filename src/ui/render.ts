@@ -10,6 +10,7 @@ import {
 import { FACTOR_META } from "../scoring";
 import { APP_TIMEZONE, formatLocalISO, formatUtcOffset, getOffsetMinutes, zonedToUtc } from "../time";
 import { BUILD_ID, BUILD_TIME } from "../build";
+import type { Evaluation } from "../evaluate";
 import type { Lang } from "../types";
 import { unitText } from "../units";
 import { compassSector, courtDiagram, rotateCourtDiagram } from "./court-diagram";
@@ -132,6 +133,27 @@ function fetchedLabel(lang: Lang, iso: string): string {
   return formatDateTime(lang, formatLocalISO(date, APP_TIMEZONE));
 }
 
+/**
+ * Nhãn aria cho hình sân — DÙNG CHUNG cho sheet Cài đặt và hàng yếu tố trên màn hình chính.
+ * Phương vị/cao độ truyền vào lấy nguyên từ evaluation.sun, không tính lại mặt trời.
+ */
+function courtDiagramLabel(lang: Lang, ev: Evaluation | null, bearing: number): string {
+  const axis = Math.round(((bearing % 360) + 360) % 360) % 360;
+  const axisDir = t(lang, MSG(`compass.${compassSector(bearing)}`));
+  if (!ev) return t(lang, "court.diagramLabelUnknown", { axis, axisDir });
+  if (ev.point.is_day === 0 || ev.sun.elevation <= 0) {
+    return t(lang, "court.diagramLabelNight", { axis, axisDir });
+  }
+  return t(lang, "court.diagramLabel", {
+    axis,
+    axisDir,
+    sun: Math.round(ev.sun.azimuth),
+    sunDir: t(lang, MSG(`compass.${compassSector(ev.sun.azimuth)}`)),
+    alt: Math.round(ev.sun.elevation),
+    shadowDir: t(lang, MSG(`compass.${compassSector(ev.sun.azimuth + 180)}`)),
+  });
+}
+
 function factorSentence(lang: Lang, id: string, impact: number): string {
   const band = bandFor(impact);
   const label = t(lang, MSG(`factor.${id}`));
@@ -221,6 +243,8 @@ function renderFactors(state: AppState, animate: boolean): HTMLElement {
   const items = sorted.map((factor, index) => {
     const band = bandFor(factor.impact);
     const meta = FACTOR_META[factor.id];
+    // Riêng hàng "chói nắng theo hướng sân" mới nhận thêm hình sân thu gọn.
+    const isSunBearing = factor.id === "sun_bearing";
     const valueText =
       factor.id === "is_day"
         ? factor.value === 1
@@ -233,9 +257,20 @@ function renderFactors(state: AppState, animate: boolean): HTMLElement {
     const bar = impactBar(factor.impact, meta ? meta.maxWeight : 0);
     const summary = h(
       "summary",
-      { class: "factor-summary" },
+      {
+        class: "factor-summary",
+        // Inline style có chủ đích: src/styles.css thuộc làn khác, nên thay đổi phải khoanh vùng đúng hàng này.
+        style: isSunBearing
+          ? "grid-template-columns: 34px minmax(0,1fr) auto auto 64px; align-items:center"
+          : undefined,
+      },
       h("span", { class: `factor-icon band-${band}` }, factorIcon(factor.id, 20)),
-      h("span", { class: "factor-label", text: t(lang, MSG(`factor.${factor.id}`)) }),
+      h("span", {
+        class: "factor-label",
+        text: t(lang, MSG(`factor.${factor.id}`)),
+        // Nhãn phải xuống dòng thay vì bị cắt thêm khi hàng có cột hình thứ năm.
+        style: isSunBearing ? "white-space:normal; overflow:visible; text-overflow:clip; line-height:1.25" : undefined,
+      }),
       h("span", { class: "factor-value", text: valueText }),
       h(
         "span",
@@ -248,6 +283,27 @@ function renderFactors(state: AppState, animate: boolean): HTMLElement {
         ),
       ),
     );
+    if (isSunBearing) {
+      const rowDiagram = courtDiagram({
+        bearing: state.courtBearing,
+        sun: ev ? { azimuth: ev.sun.azimuth, elevation: ev.sun.elevation } : null,
+        isDay: ev ? ev.point.is_day !== 0 : undefined,
+        variant: "compact",
+        ariaLabel: courtDiagramLabel(lang, ev, state.courtBearing),
+        northLabel: t(lang, "compass.n"),
+        noSunLabel: t(lang, "court.diagramNoSun"),
+      });
+      rowDiagram.setAttribute("style", "width:64px;height:64px;display:block");
+      const rowFigure = h(
+        "span",
+        {
+          class: "factor-diagram",
+          style: "display:flex;align-items:center;justify-content:center;width:64px;height:64px",
+        },
+        rowDiagram,
+      );
+      summary.appendChild(rowFigure);
+    }
     const detail = h(
       "div",
       { class: "factor-detail" },
@@ -849,30 +905,12 @@ function renderInputsSheet(state: AppState, actions: Actions): HTMLElement[] {
     text: `${formatNumber(lang, state.courtBearing)}${t(lang, "unit.deg")}`,
   });
   const ev = state.evaluation;
-  const compassKey = (deg: number): MessageKey => MSG(`compass.${compassSector(deg)}`);
-  // Nhãn aria dựng từ i18n; phương vị/cao độ lấy nguyên từ evaluation.sun, không tính lại.
-  const diagramLabelFor = (bearing: number): string => {
-    const axis = Math.round(((bearing % 360) + 360) % 360) % 360;
-    const axisDir = t(lang, compassKey(bearing));
-    if (!ev) return t(lang, "court.diagramLabelUnknown", { axis, axisDir });
-    if (ev.point.is_day === 0 || ev.sun.elevation <= 0) {
-      return t(lang, "court.diagramLabelNight", { axis, axisDir });
-    }
-    return t(lang, "court.diagramLabel", {
-      axis,
-      axisDir,
-      sun: Math.round(ev.sun.azimuth),
-      sunDir: t(lang, compassKey(ev.sun.azimuth)),
-      alt: Math.round(ev.sun.elevation),
-      shadowDir: t(lang, compassKey(ev.sun.azimuth + 180)),
-    });
-  };
   const courtSvg = courtDiagram({
     bearing: state.courtBearing,
     sun: ev ? { azimuth: ev.sun.azimuth, elevation: ev.sun.elevation } : null,
     isDay: ev ? ev.point.is_day !== 0 : undefined,
     variant: "full",
-    ariaLabel: diagramLabelFor(state.courtBearing),
+    ariaLabel: courtDiagramLabel(lang, ev, state.courtBearing),
     northLabel: t(lang, "compass.n"),
     noSunLabel: t(lang, "court.diagramNoSun"),
   });
@@ -926,7 +964,7 @@ function renderInputsSheet(state: AppState, actions: Actions): HTMLElement[] {
           oninput: (e: Event) => {
             const value = Number((e.target as HTMLInputElement).value);
             bearingValue.textContent = `${formatNumber(lang, value)}${t(lang, "unit.deg")}`;
-            rotateCourtDiagram(courtSvg, value, diagramLabelFor(value));
+            rotateCourtDiagram(courtSvg, value, courtDiagramLabel(lang, ev, value));
           },
           onchange: (e: Event) => actions.setBearing(Number((e.target as HTMLInputElement).value)),
           onfocus: focusScroll,
