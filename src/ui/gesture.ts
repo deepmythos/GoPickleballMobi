@@ -70,6 +70,41 @@ export const SWIPE_EXCLUDE_TAGS = ["input", "textarea", "select"] as const;
 export const SWIPE_EXCLUDE_ROLES = ["slider"] as const;
 export const SWIPE_EXCLUDE_CLASSES = ["range", "segmented", "segment"] as const;
 
+/**
+ * Thẻ của ĐIỀU KHIỂN: cú chạm bắt đầu từ/trong chúng thuộc về điều khiển, không phải
+ * cử chỉ của tầng dưới (swipe-back, và đặc biệt là kéo-để-đóng sheet).
+ *
+ * Vì sao cần: cử chỉ kéo sheet nghe `touchstart` trên `document` rồi gọi
+ * `preventDefault()` ở `touchmove` — điều này HUỶ luôn cú `click` của nút đang được
+ * bấm. Trên máy thật, ngón tay luôn xê dịch vài chục px khi bấm nút X ở góc trên bên
+ * phải, nên nút X "không phản hồi" trong khi "kéo xuống để đóng" vẫn chạy. Chặn ngay
+ * từ `touchstart`: cú chạm nào bắt đầu trong điều khiển thì KHÔNG mở cử chỉ kéo.
+ */
+export const CONTROL_TAGS = [
+  "button",
+  "a",
+  "input",
+  "textarea",
+  "select",
+  "summary",
+  "label",
+  "option",
+] as const;
+export const CONTROL_ROLES = [
+  "button",
+  "link",
+  "slider",
+  "checkbox",
+  "radio",
+  "switch",
+  "tab",
+  "menuitem",
+  "combobox",
+  "textbox",
+] as const;
+/** Ghi đè thủ công: phần tử (hoặc tổ tiên) khai thuộc tính này thì không mở cử chỉ. */
+export const CONTROL_IGNORE_ATTR = "data-gesture-ignore";
+
 /** Đặc điểm của phần tử bắt đầu cử chỉ — tầng gọi trích từ DOM để giữ file này thuần. */
 export interface TouchTargetTraits {
   /** Tên thẻ, ví dụ "BUTTON" hoặc "DIV". */
@@ -78,18 +113,45 @@ export interface TouchTargetTraits {
   role: string | null;
   /** Class của chính phần tử và mọi tổ tiên (gần trước, xa sau). */
   classNames: readonly string[];
+  /**
+   * Thẻ của chính phần tử và mọi tổ tiên (gần trước, xa sau).
+   * Cần thiết vì cú chạm vào nút thường trúng phần tử con (icon `<svg>`/`<path>`),
+   * khi đó chỉ xét `tagName` của điểm chạm là không đủ. Bỏ trống = chỉ xét điểm chạm.
+   */
+  tags?: readonly string[];
+  /** Role của chính phần tử và mọi tổ tiên (gần trước, xa sau). Bỏ trống = chỉ xét điểm chạm. */
+  roles?: readonly (string | null)[];
+  /** true khi điểm chạm nằm trong phần tử khai `data-gesture-ignore`. */
+  controlMarked?: boolean;
 }
 
 /**
- * true khi điểm chạm thuộc điều khiển tự xử lý cử chỉ: ô nhập, thanh trượt,
- * hoặc băng chọn segmented (kể cả nút con .segment).
+ * true khi điểm chạm thuộc một ĐIỀU KHIỂN (nút, liên kết, ô nhập, thanh trượt, băng
+ * chọn segmented, hoặc phần tử tự khai `data-gesture-ignore`): điều khiển phải nhận
+ * cú chạm của nó, mọi cử chỉ của tầng dưới đều đứng ngoài.
  */
 export function isExcludedTouchTarget(traits: TouchTargetTraits): boolean {
   const tag = traits.tagName.toLowerCase();
   if ((SWIPE_EXCLUDE_TAGS as readonly string[]).includes(tag)) return true;
   const role = traits.role;
   if (role !== null && (SWIPE_EXCLUDE_ROLES as readonly string[]).includes(role)) return true;
-  return traits.classNames.some((name) =>
-    (SWIPE_EXCLUDE_CLASSES as readonly string[]).includes(name),
-  );
+  if (
+    traits.classNames.some((name) => (SWIPE_EXCLUDE_CLASSES as readonly string[]).includes(name))
+  ) {
+    return true;
+  }
+  // Chuỗi tổ tiên: cú chạm trúng icon bên trong một nút vẫn là cú chạm vào nút đó.
+  const tags = traits.tags && traits.tags.length > 0 ? traits.tags : [traits.tagName];
+  if (tags.some((name) => (CONTROL_TAGS as readonly string[]).includes(name.toLowerCase()))) {
+    return true;
+  }
+  const roles = traits.roles && traits.roles.length > 0 ? traits.roles : [traits.role];
+  if (
+    roles.some(
+      (value) => value !== null && (CONTROL_ROLES as readonly string[]).includes(value.toLowerCase()),
+    )
+  ) {
+    return true;
+  }
+  return traits.controlMarked === true;
 }

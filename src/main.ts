@@ -23,7 +23,8 @@ import { isLang, t } from "./i18n";
 import { APP_TIMEZONE, ceilToHour, formatLocalISO } from "./time";
 import type { BaseUrls, GeoLocation, Lang } from "./types";
 import { hostOf, renderApp } from "./ui/render";
-import { createSwipeLatch, isExcludedTouchTarget, isHorizontalDominant, type SwipeSample, type TouchTargetTraits } from "./ui/gesture";
+import { createSwipeLatch, isExcludedTouchTarget, isHorizontalDominant, type SwipeSample } from "./ui/gesture";
+import { touchTargetTraits } from "./ui/hit";
 import { dragVisual, initialSheetState, isSheetOpen, sheetReducer, type SheetAction } from "./ui/sheet";
 import { resolveTheme, themeAttribute, THEME_STORAGE_KEY } from "./ui/theme";
 import { validateAtInput, validateDraftLocation } from "./ui/validate";
@@ -581,17 +582,8 @@ function start(): void {
     return false;
   }
 
-  /** Đặc điểm của phần tử bắt đầu cử chỉ — trích từ DOM, quyết định nằm ở gesture.ts. */
-  function touchTargetTraits(el: Element): TouchTargetTraits {
-    const classNames: string[] = [];
-    let node: Element | null = el;
-    while (node && node !== document.body) {
-      classNames.push(...Array.from(node.classList));
-      node = node.parentElement;
-    }
-    return { tagName: el.tagName, role: el.getAttribute("role"), classNames };
-  }
-
+  /** Đặc điểm của phần tử bắt đầu cử chỉ — trích từ DOM, quyết định nằm ở gesture.ts
+   *  (dùng chung với test qua ./hit để test khẳng định đúng hành vi thật của app). */
   function isExcludedTarget(el: Element): boolean {
     if (isExcludedTouchTarget(touchTargetTraits(el))) return true;
     return isHorizontalScroller(el);
