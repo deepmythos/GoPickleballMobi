@@ -100,6 +100,7 @@ function state(overrides: Partial<AppState> = {}): AppState {
     theme: "system",
     offline: false,
     update: { available: false, dismissed: false },
+    updateCheck: { status: "idle" },
     applyErrorKey: null,
     ...overrides,
   };

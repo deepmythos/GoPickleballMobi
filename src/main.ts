@@ -18,7 +18,7 @@ import {
 } from "./cache";
 import { evaluate, NoTargetHourError, type Evaluation } from "./evaluate";
 import { BUILD_ID, BUILD_TIME } from "./build";
-import { applyUpdate, initPwa } from "./pwa";
+import { applyUpdate, checkForUpdate, initPwa } from "./pwa";
 import { isLang, t } from "./i18n";
 import { APP_TIMEZONE, ceilToHour, formatLocalISO } from "./time";
 import type { BaseUrls, GeoLocation, Lang } from "./types";
@@ -149,6 +149,7 @@ function initialiseState(params: URLSearchParams): AppState {
     theme,
     offline: typeof navigator !== "undefined" && navigator.onLine === false,
     update: { available: false, dismissed: false },
+    updateCheck: { status: "idle" },
   };
 }
 
@@ -535,6 +536,16 @@ function start(): void {
     },
     refresh() {
       void loadData();
+    },
+    checkUpdate() {
+      if (state.updateCheck?.status === "checking") return;
+      state.updateCheck = { status: "checking" };
+      render();
+      void checkForUpdate().then((result) => {
+        state.updateCheck = { status: result };
+        if (result === "available") state.update = { available: true, dismissed: false };
+        render();
+      });
     },
     applyUpdate: () => applyUpdate(),
     dismissUpdate: () => {
