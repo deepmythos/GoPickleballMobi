@@ -6,6 +6,13 @@ const CACHE = "pickleball-go-nogo-shell-__CACHE_VERSION__";
 const PRECACHE = __PRECACHE__;
 const API_HOSTS = ["api.open-meteo.com", "air-quality-api.open-meteo.com", "geocoding-api.open-meteo.com"];
 
+// Chỉ các destination này mới là tài nguyên TĨNH của app shell. Mọi request cùng origin khác
+// (destination rỗng: payload JSON, hoặc base URL ghi đè trỏ về cùng origin — vd ?forecastBase=/api)
+// TUYỆT ĐỐI không được tra cache và không được ghi cache: payload cũ trả về im lặng sẽ bị hiểu là
+// số liệu mới, đúng thứ comment bên dưới cấm. Giới hạn còn lại: không phân biệt được nếu một base
+// ghi đè trỏ về cùng origin VỚI destination tĩnh — khi đó request vẫn bị coi là app shell.
+const STATIC_DESTINATIONS = ["document", "script", "style", "image", "font", "manifest", "audio", "video", "worker"];
+
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE).then(async (cache) => {
@@ -60,6 +67,13 @@ self.addEventListener("fetch", (event) => {
 
   // Khác origin -> để trình duyệt tự xử lý.
   if (url.origin !== self.location.origin) return;
+
+  // Cùng origin NHƯNG không phải tài nguyên tĩnh của app shell -> network-only.
+  // Chốt chặn cho payload JSON và base URL ghi đè cùng origin: không tra cache, không ghi cache.
+  if (!STATIC_DESTINATIONS.includes(request.destination)) {
+    event.respondWith(fetch(request));
+    return;
+  }
 
   // Cùng origin -> cache-first cho app shell.
   // Mọi lần tra cache đều phải { ignoreVary: true } vì asset được tải ở chế độ CORS (có Origin)

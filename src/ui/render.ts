@@ -8,13 +8,15 @@ import {
   type MessageKey,
 } from "../i18n";
 import { FACTOR_META } from "../scoring";
-import { APP_TIMEZONE, formatLocalISO } from "../time";
+import { APP_TIMEZONE, formatLocalISO, formatUtcOffset, getOffsetMinutes, zonedToUtc } from "../time";
 import { BUILD_ID, BUILD_TIME } from "../build";
 import type { Lang } from "../types";
-import { isSheetOpen, type SheetPanel } from "./sheet";
+import { unitText } from "../units";
+import { dragVisual, isSheetOpen, type SheetPanel } from "./sheet";
 import { factorIcon, gateIcon, makeIcon, ICONS } from "./icons";
 import { impactBar } from "./impact";
 import type { Actions, AppState } from "./state";
+import { parseCoordInput } from "./validate";
 
 type Child = Node | string | number | null | undefined | false;
 
@@ -225,7 +227,7 @@ function renderFactors(state: AppState, animate: boolean): HTMLElement {
           : t(lang, "raw.night")
         : factor.unit === "bool"
           ? t(lang, "common.none")
-          : `${formatNumber(lang, factor.value, { maximumFractionDigits: 1 })} ${factor.unit}`;
+          : `${formatNumber(lang, factor.value, { maximumFractionDigits: 1 })} ${unitText(lang, factor.unit)}`;
     // Thanh tác động: độ dài THẬT tính từ |impact| / maxWeight, không bịa.
     const bar = impactBar(factor.impact, meta ? meta.maxWeight : 0);
     const summary = h(
@@ -521,6 +523,18 @@ function renderAppBar(state: AppState, actions: Actions): HTMLElement {
   } else {
     summary = t(lang, "status.loading");
   }
+  // Toạ độ ĐANG DÙNG (lấy từ state đã áp dụng, không phải tên địa điểm): thanh trên phải cho biết
+  // app đang thực sự tính cho chỗ nào, kể cả khi tên còn là của lần chọn trước.
+  const coords = `${state.location.lat.toFixed(4)}, ${state.location.lon.toFixed(4)}`;
+  // Nhãn offset suy từ chính mốc giờ đang tính (targetHour) nên đúng cả khi DST đổi.
+  // targetHour có thể đến thẳng từ tham số URL `at` và không hợp lệ (`?at=14` -> "14:00");
+  // khi đó bỏ nhãn offset thay vì để lỗi làm chết cả render() (màn hình trắng).
+  let offset: string | null = null;
+  try {
+    offset = formatUtcOffset(getOffsetMinutes(zonedToUtc(state.targetHour)));
+  } catch {
+    offset = null;
+  }
   return h(
     "header",
     { class: "appbar" },
@@ -547,10 +561,22 @@ function renderAppBar(state: AppState, actions: Actions): HTMLElement {
           "aria-label": t(lang, "header.changeLocation"),
           onclick: () => actions.openSheet("location"),
         },
-        h("span", { class: "appbar-loc-name", text: state.location.name }),
+        h(
+          "span",
+          { class: "appbar-loc-text" },
+          h("span", { class: "appbar-loc-name", text: state.location.name }),
+          h("span", { class: "appbar-coords", title: t(lang, "header.usingLocation"), text: coords }),
+        ),
         makeIcon(ICONS.chevronDown, 14),
       ),
-      h("span", { class: "appbar-time", text: formatDateTime(lang, state.targetHour) }),
+      h(
+        "span",
+        { class: "appbar-time" },
+        h("span", { class: "appbar-time-value", text: formatDateTime(lang, state.targetHour) }),
+        offset === null
+          ? null
+          : h("span", { class: "appbar-offset", title: t(lang, "time.offset"), text: `(${offset})` }),
+      ),
     ),
     h("p", { class: "appbar-verdict", text: summary }),
   );
@@ -611,7 +637,9 @@ function field(label: string, input: HTMLElement): HTMLElement {
 function geoResults(state: AppState, actions: Actions): HTMLElement | null {
   const lang = state.lang;
   if (state.geoStatus === "loading") {
-    return h("p", { class: "sheet-note", text: t(lang, "location.searching") });
+    const text =
+      state.geoError === "locate" ? t(lang, "location.locating") : t(lang, "location.searching");
+    return h("p", { class: "sheet-note", text });
   }
   if (state.geoResults.length > 0) {
     return h(
@@ -637,7 +665,9 @@ function geoResults(state: AppState, actions: Actions): HTMLElement | null {
     return h("p", { class: "sheet-note", text: t(lang, "location.noResults") });
   }
   if (state.geoStatus === "error") {
-    return h("p", { class: "sheet-note error-text", text: t(lang, "location.geoDenied") });
+    const text =
+      state.geoError === "search" ? t(lang, "location.searchFailed") : t(lang, "location.geoDenied");
+    return h("p", { class: "sheet-note error-text", text });
   }
   return null;
 }
@@ -688,8 +718,8 @@ function renderLocationSheet(state: AppState, actions: Actions): Child[] {
           inputmode: "decimal",
           step: "any",
           class: "input",
-          value: String(state.draft.lat),
-          oninput: (e: Event) => actions.patchDraft({ lat: Number((e.target as HTMLInputElement).value) }),
+          value: Number.isFinite(state.draft.lat) ? String(state.draft.lat) : "",
+          oninput: (e: Event) => actions.patchDraft({ lat: parseCoordInput((e.target as HTMLInputElement).value) }),
           onfocus: focusScroll,
         }),
       ),
@@ -700,8 +730,8 @@ function renderLocationSheet(state: AppState, actions: Actions): Child[] {
           inputmode: "decimal",
           step: "any",
           class: "input",
-          value: String(state.draft.lon),
-          oninput: (e: Event) => actions.patchDraft({ lon: Number((e.target as HTMLInputElement).value) }),
+          value: Number.isFinite(state.draft.lon) ? String(state.draft.lon) : "",
+          oninput: (e: Event) => actions.patchDraft({ lon: parseCoordInput((e.target as HTMLInputElement).value) }),
           onfocus: focusScroll,
         }),
       ),
@@ -712,6 +742,12 @@ function renderLocationSheet(state: AppState, actions: Actions): Child[] {
       makeIcon(ICONS.locate, 16),
       h("span", { text: t(lang, "location.useMyLocation") }),
     ),
+    state.applyErrorKey === "location.invalidCoords"
+      ? h("p", {
+          class: "sheet-note error-text apply-error",
+          text: t(lang, "location.invalidCoords"),
+        })
+      : null,
     h(
       "button",
       { class: "btn primary full", type: "button", onclick: actions.applyLocation },
@@ -774,6 +810,9 @@ function renderInputsSheet(state: AppState, actions: Actions): HTMLElement[] {
         h("span", { text: t(lang, "time.nextHour") }),
       ),
       h("p", { class: "sheet-note", text: `${t(lang, "time.local")}: ${APP_TIMEZONE}` }),
+      state.applyErrorKey === "time.invalidTime"
+        ? h("p", { class: "sheet-note error-text apply-error", text: t(lang, "time.invalidTime") })
+        : null,
       h("button", { class: "btn primary full", type: "button", onclick: actions.applyTime }, t(lang, "time.apply")),
     ),
     h(
@@ -894,12 +933,16 @@ function renderSheet(state: AppState, actions: Actions): HTMLElement | null {
   const entering = panel !== "none" && panel !== lastSheetPanel;
   lastSheetPanel = panel;
   if (panel === "none") return null;
+  // Độ lệch kéo tay được ĐỌC TỪ STATE: re-render giữa chừng (mở details, đổi giờ…) không nuốt mất nó.
+  const drag = dragVisual(state.sheet.dragOffsetPx);
   const isLocation = panel === "location";
   const body = isLocation ? renderLocationSheet(state, actions) : renderInputsSheet(state, actions);
   return h(
     "div",
     {
       class: "sheet-backdrop",
+      // Khi offset = 0 thì KHÔNG gắn style, để animation `sheet-enter` chạy nguyên như cũ.
+      style: drag.offsetPx > 0 ? `opacity: ${drag.backdropOpacity}` : undefined,
       onclick: (e: MouseEvent) => {
         if (e.target === e.currentTarget) actions.closeSheet();
       },
@@ -908,6 +951,7 @@ function renderSheet(state: AppState, actions: Actions): HTMLElement | null {
       "div",
       {
         class: `sheet-wrap${entering ? " sheet-enter" : ""}`,
+        style: drag.offsetPx > 0 ? `transform: translateY(${drag.offsetPx}px)` : undefined,
         role: "dialog",
         "aria-modal": "true",
         "aria-labelledby": "sheet-title",

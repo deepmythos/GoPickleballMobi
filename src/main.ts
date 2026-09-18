@@ -24,14 +24,16 @@ import { APP_TIMEZONE, ceilToHour, formatLocalISO } from "./time";
 import type { BaseUrls, GeoLocation, Lang } from "./types";
 import { hostOf, renderApp } from "./ui/render";
 import { createSwipeLatch, isExcludedTouchTarget, isHorizontalDominant, type SwipeSample, type TouchTargetTraits } from "./ui/gesture";
-import { initialSheetState, isSheetOpen, sheetReducer, type SheetAction } from "./ui/sheet";
+import { dragVisual, initialSheetState, isSheetOpen, sheetReducer, type SheetAction } from "./ui/sheet";
 import { resolveTheme, themeAttribute, THEME_STORAGE_KEY } from "./ui/theme";
+import { validateAtInput, validateDraftLocation } from "./ui/validate";
 import type { Actions, AppState, ThemeChoice } from "./ui/state";
 
 const DEFAULT_LOCATION: GeoLocation = {
   lat: 49.9960846,
   lon: 8.7605459,
-  name: "Pickleball-Plätze, Offenthaler Straße, Dietzenbach",
+  // Danh từ riêng: lấy nguyên văn khoá từ điển (giá trị y hệt ở cả vi/de/en).
+  name: t("vi", "location.defaultName"),
 };
 
 interface WindowVerdict {
@@ -137,10 +139,12 @@ function initialiseState(params: URLSearchParams): AppState {
     sheet: initialSheetState,
     rawOpen: false,
     geoStatus: "idle",
+    geoError: null,
     geoResults: [],
     searchQuery: "",
     draft: { ...location },
     atInput: targetHour,
+    applyErrorKey: null,
     theme,
     offline: typeof navigator !== "undefined" && navigator.onLine === false,
     update: { available: false, dismissed: false },
@@ -378,6 +382,7 @@ function start(): void {
 
   const actions: Actions = {
     openSheet(panel) {
+      state.applyErrorKey = null;
       if (panel === "location") {
         // Nhớ nút đã mở: appbar khi mở từ ngoài, nút trong sheet khi mở từ sheet khác.
         openerSelector = isSheetOpen(state.sheet)
@@ -387,6 +392,7 @@ function start(): void {
         state.searchQuery = "";
         state.geoResults = [];
         state.geoStatus = "idle";
+        state.geoError = null;
       } else {
         openerSelector = ".actionbar-adjust";
         state.atInput = state.targetHour;
@@ -438,6 +444,7 @@ function start(): void {
       const query = state.searchQuery.trim();
       if (!query) return;
       state.geoStatus = "loading";
+      state.geoError = null;
       state.geoResults = [];
       render();
       const language = state.lang === "de" ? "de" : "en";
@@ -450,6 +457,7 @@ function start(): void {
         .catch(() => {
           state.geoResults = [];
           state.geoStatus = "error";
+          state.geoError = "search";
           render();
         });
     },
@@ -461,14 +469,14 @@ function start(): void {
       state.draft = { ...state.draft, ...patch };
     },
     applyLocation() {
-      const { lat, lon, name } = state.draft;
-      if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
-      if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return;
-      state.location = {
-        lat,
-        lon,
-        name: name.trim() || `${lat.toFixed(4)}, ${lon.toFixed(4)}`,
-      };
+      const result = validateDraftLocation(state.draft);
+      if (!result.ok) {
+        state.applyErrorKey = result.errorKey;
+        render();
+        return;
+      }
+      state.applyErrorKey = null;
+      state.location = result.location;
       persist();
       updateUrl();
       runSheetActions({ type: "close" });
@@ -477,10 +485,12 @@ function start(): void {
     locateMe() {
       if (!navigator.geolocation) {
         state.geoStatus = "error";
+        state.geoError = "locate";
         render();
         return;
       }
       state.geoStatus = "loading";
+      state.geoError = "locate";
       render();
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -490,10 +500,12 @@ function start(): void {
             name: t(state.lang, "location.useMyLocation"),
           };
           state.geoStatus = "idle";
+          state.geoError = null;
           render();
         },
         () => {
           state.geoStatus = "error";
+          state.geoError = "locate";
           render();
         },
         { enableHighAccuracy: false, timeout: 10000 },
@@ -503,10 +515,15 @@ function start(): void {
       state.atInput = value;
     },
     applyTime() {
-      const match = state.atInput.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/);
-      if (!match) return;
-      state.targetHour = `${state.atInput.slice(0, 13)}:00`;
-      state.atInput = state.targetHour;
+      const result = validateAtInput(state.atInput);
+      if (!result.ok) {
+        state.applyErrorKey = result.errorKey;
+        render();
+        return;
+      }
+      state.applyErrorKey = null;
+      state.targetHour = result.targetHour;
+      state.atInput = result.targetHour;
       updateUrl();
       recompute();
       runSheetActions({ type: "close" });
@@ -571,6 +588,9 @@ function start(): void {
 
   function onTouchStart(e: TouchEvent): void {
     if (e.touches.length !== 1) {
+      // Ngón thứ hai chạm vào => bỏ cử chỉ đang dở. Phải trả state (và DOM) về vị trí nghỉ
+      // TRƯỚC khi quên nó, nếu không sheet đứng lệch vĩnh viễn.
+      if (state.sheet.dragging || state.sheet.dragOffsetPx > 0) finishDrag(0);
       touchState = null;
       return;
     }
@@ -597,10 +617,16 @@ function start(): void {
     if (Math.abs(dy) > Math.abs(dx) && dy > 0) {
       e.preventDefault();
       touchState.dy = dy;
+      // Fast-path mỗi frame vẫn ghi thẳng DOM cho mượt, nhưng giá trị ghi ra CHÍNH LÀ
+      // SheetState.dragOffsetPx (cùng trường renderSheet đọc): state và DOM luôn khớp nhau,
+      // nên re-render giữa chừng không làm mất độ lệch. Cố ý KHÔNG gọi render().
+      if (!state.sheet.dragging) state.sheet = sheetReducer(state.sheet, { type: "dragStart" });
+      state.sheet = sheetReducer(state.sheet, { type: "dragMove", offsetPx: dy });
+      const drag = dragVisual(state.sheet.dragOffsetPx);
       const wrap = root.querySelector<HTMLElement>(".sheet-wrap");
       const backdrop = root.querySelector<HTMLElement>(".sheet-backdrop");
-      if (wrap) wrap.style.transform = `translateY(${dy}px)`;
-      if (backdrop) backdrop.style.opacity = String(Math.max(0, 1 - dy / 320));
+      if (wrap) wrap.style.transform = `translateY(${drag.offsetPx}px)`;
+      if (backdrop) backdrop.style.opacity = String(drag.backdropOpacity);
     }
   }
 
@@ -635,7 +661,12 @@ function start(): void {
         const outcome = swipeLatch.decide(sample);
         if (outcome === "back" && isSheetOpen(state.sheet)) {
           actions.closeSheet();
+          return;
         }
+        // Cử chỉ kết thúc theo hướng ngang nhưng KHÔNG phải vuốt lùi: lần kéo dọc bị bỏ dở
+        // phải được trả về vị trí nghỉ, nếu không state (và DOM) đứng lệch cho tới lần kéo sau.
+        // Chỉ khi state THỰC SỰ đang giữ một lần kéo (dragStart đã chạy) mới cần trả về vị trí nghỉ.
+        if (state.sheet.dragging || state.sheet.dragOffsetPx > 0) finishDrag(0);
         return;
       }
     }

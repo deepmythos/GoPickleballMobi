@@ -65,6 +65,10 @@ describe("scoreConditions", () => {
     );
     expect(result.gates).toContain("heat");
     expect(result.verdict).toBe("Không nên");
+    const uv = result.factors.find((f) => f.id === "uv_index");
+    expect(uv, "thiếu factor uv_index khi trời sáng").toBeDefined();
+    // UV 11 nằm trên đoạn [10,-6]..[12,-9] của đường cong uv_index
+    expect(uv!.impact).toBeLessThan(0);
   });
 
   it("4. darkness without lights is not playable", () => {

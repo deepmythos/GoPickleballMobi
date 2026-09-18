@@ -1,4 +1,5 @@
 import { axisAngle } from "./sun";
+import { UNIT } from "./units";
 import type { FactorResult, ScoreInput, ScoreResult, VerdictLabel } from "./types";
 
 export interface FactorMeta {
@@ -108,7 +109,7 @@ export function scoreConditions(input: ScoreInput): ScoreResult {
     factors.push({ id, value, unit, impact: Math.round(evaluate(value)) });
   };
 
-  add("rain_current", input.rainCurrent, "mm/h", (v) =>
+  add("rain_current", input.rainCurrent, UNIT.mmh, (v) =>
     piece(v, [
       [0, 8],
       [0.1, 6],
@@ -119,7 +120,7 @@ export function scoreConditions(input: ScoreInput): ScoreResult {
     ]),
   );
 
-  add("rain_probability", input.rainProbability, "%", (v) =>
+  add("rain_probability", input.rainProbability, UNIT.percent, (v) =>
     piece(v, [
       [0, 4],
       [10, 4],
@@ -130,7 +131,7 @@ export function scoreConditions(input: ScoreInput): ScoreResult {
     ]),
   );
 
-  add("rain_24h", input.rain24h, "mm", (v) =>
+  add("rain_24h", input.rain24h, UNIT.mm, (v) =>
     piece(v, [
       [0, 6],
       [0.5, 4],
@@ -142,7 +143,7 @@ export function scoreConditions(input: ScoreInput): ScoreResult {
     ]),
   );
 
-  add("wind_speed", input.windSpeed, "km/h", (v) =>
+  add("wind_speed", input.windSpeed, UNIT.kmh, (v) =>
     piece(v, [
       [0, 3],
       [8, 3],
@@ -153,7 +154,7 @@ export function scoreConditions(input: ScoreInput): ScoreResult {
     ]),
   );
 
-  add("wind_gust", input.windGust, "km/h", (v) =>
+  add("wind_gust", input.windGust, UNIT.kmh, (v) =>
     piece(v, [
       [0, 6],
       [12, 6],
@@ -165,7 +166,7 @@ export function scoreConditions(input: ScoreInput): ScoreResult {
     ]),
   );
 
-  add("apparent_temperature", input.apparentTemperature, "°C", (v) =>
+  add("apparent_temperature", input.apparentTemperature, UNIT.celsius, (v) =>
     piece(v, [
       [-20, -12],
       [-2, -10],
@@ -184,7 +185,7 @@ export function scoreConditions(input: ScoreInput): ScoreResult {
   const dayish = input.isDay !== 0;
 
   if (dayish) {
-    add("uv_index", input.uvIndex, "UV", (v) =>
+    add("uv_index", input.uvIndex, UNIT.uv, (v) =>
       piece(v, [
         [0, 1],
         [2, 2],
@@ -195,7 +196,7 @@ export function scoreConditions(input: ScoreInput): ScoreResult {
         [12, -9],
       ]),
     );
-    add("cloud_cover", input.cloudCover, "%", (v) =>
+    add("cloud_cover", input.cloudCover, UNIT.percent, (v) =>
       piece(v, [
         [0, -1],
         [20, 0],
@@ -211,16 +212,16 @@ export function scoreConditions(input: ScoreInput): ScoreResult {
     if (input.uvIndex === null) {
       missing.push("uv_index");
     } else {
-      factors.push({ id: "uv_index", value: input.uvIndex, unit: "UV", impact: 0 });
+      factors.push({ id: "uv_index", value: input.uvIndex, unit: UNIT.uv, impact: 0 });
     }
     if (input.cloudCover === null) {
       missing.push("cloud_cover");
     } else {
-      factors.push({ id: "cloud_cover", value: input.cloudCover, unit: "%", impact: 0 });
+      factors.push({ id: "cloud_cover", value: input.cloudCover, unit: UNIT.percent, impact: 0 });
     }
   }
 
-  add("visibility", input.visibility, "m", (v) =>
+  add("visibility", input.visibility, UNIT.meter, (v) =>
     piece(v, [
       [0, -5],
       [2000, -5],
@@ -231,7 +232,7 @@ export function scoreConditions(input: ScoreInput): ScoreResult {
     ]),
   );
 
-  add("european_aqi", input.aqi, "EAQI", (v) =>
+  add("european_aqi", input.aqi, UNIT.eaqi, (v) =>
     piece(v, [
       [0, 4],
       [20, 4],
@@ -256,11 +257,11 @@ export function scoreConditions(input: ScoreInput): ScoreResult {
     factors.push({
       id: "sun_bearing",
       value: Math.round(alignment),
-      unit: "°",
+      unit: UNIT.deg,
       impact: Math.round(2 - 6 * severity),
     });
   } else {
-    factors.push({ id: "sun_bearing", value: 0, unit: "°", impact: 0 });
+    factors.push({ id: "sun_bearing", value: 0, unit: UNIT.deg, impact: 0 });
   }
 
   if (input.isDay === null) {
