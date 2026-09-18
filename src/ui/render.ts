@@ -257,19 +257,11 @@ function renderFactors(state: AppState, actions: Actions, animate: boolean): HTM
     const bar = impactBar(factor.impact, meta ? meta.maxWeight : 0);
     const summary = h(
       "summary",
-      {
-        class: "factor-summary",
-        // Inline style có chủ đích: src/styles.css thuộc làn khác, nên thay đổi phải khoanh vùng đúng hàng này.
-        style: isSunBearing
-          ? "grid-template-columns: 34px minmax(0,1fr) auto auto 64px; align-items:center"
-          : undefined,
-      },
+      { class: "factor-summary" },
       h("span", { class: `factor-icon band-${band}` }, factorIcon(factor.id, 20)),
       h("span", {
         class: "factor-label",
         text: t(lang, MSG(`factor.${factor.id}`)),
-        // Nhãn phải xuống dòng thay vì bị cắt thêm khi hàng có cột hình thứ năm.
-        style: isSunBearing ? "white-space:normal; overflow:visible; text-overflow:clip; line-height:1.25" : undefined,
       }),
       h("span", { class: "factor-value", text: valueText }),
       h(
@@ -283,6 +275,10 @@ function renderFactors(state: AppState, actions: Actions, animate: boolean): HTM
         ),
       ),
     );
+    // Hình minh hoạ sân giờ nằm trong NỘI DUNG MỞ RỘNG của ô, không còn ở dòng tóm tắt:
+    // dòng tóm tắt chỉ còn nhãn + giá trị + tác động (thấp hơn trước), hình chỉ hiện khi
+    // người dùng bấm mở ô. Module vẽ dùng chung vẫn là nguồn duy nhất → góc vẽ = phương vị thật.
+    let rowFigure: HTMLElement | null = null;
     if (isSunBearing) {
       const rowDiagram = courtDiagram({
         bearing: state.courtBearing,
@@ -294,7 +290,7 @@ function renderFactors(state: AppState, actions: Actions, animate: boolean): HTM
         noSunLabel: t(lang, "court.diagramNoSun"),
       });
       rowDiagram.setAttribute("style", "width:64px;height:64px;display:block");
-      const rowFigure = h(
+      rowFigure = h(
         "span",
         {
           class: "factor-diagram",
@@ -302,11 +298,11 @@ function renderFactors(state: AppState, actions: Actions, animate: boolean): HTM
         },
         rowDiagram,
       );
-      summary.appendChild(rowFigure);
     }
     const detail = h(
       "div",
       { class: "factor-detail" },
+      rowFigure,
       h("p", { class: "factor-note", text: factorSentence(lang, factor.id, factor.impact) }),
       h(
         "dl",
@@ -394,8 +390,6 @@ function renderRaw(state: AppState, actions: Actions): HTMLElement {
   return h(
     "section",
     { class: "section raw" },
-    h("div", { class: "section-head" }, h("h2", { text: t(lang, "raw.title") })),
-    h("p", { class: "section-sub", text: t(lang, "raw.subtitle") }),
     h(
       "button",
       {
@@ -569,6 +563,9 @@ function renderInfo(state: AppState, actions: Actions): HTMLElement {
   } catch {
     offset = null;
   }
+  // Dòng ngày/giờ KHÔNG còn nằm bên phải khối: nó xuống dòng riêng NGAY DƯỚI địa điểm
+  // (DOM order: .infobar-loc rồi .infobar-time) nên mốc giờ không cạnh tranh chỗ với tên sân
+  // dài, và toạ độ vẫn nằm gọn trong khối địa điểm.
   return h(
     "section",
     { class: "infobar" },
@@ -591,14 +588,14 @@ function renderInfo(state: AppState, actions: Actions): HTMLElement {
         ),
         makeIcon(ICONS.chevronDown, 14),
       ),
-      h(
-        "span",
-        { class: "infobar-time" },
-        h("span", { class: "infobar-time-value", text: formatDateTime(lang, state.targetHour) }),
-        offset === null
-          ? null
-          : h("span", { class: "infobar-offset", title: t(lang, "time.offset"), text: `(${offset})` }),
-      ),
+    ),
+    h(
+      "span",
+      { class: "infobar-time" },
+      h("span", { class: "infobar-time-value", text: formatDateTime(lang, state.targetHour) }),
+      offset === null
+        ? null
+        : h("span", { class: "infobar-offset", title: t(lang, "time.offset"), text: `(${offset})` }),
     ),
   );
 }

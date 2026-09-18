@@ -140,8 +140,6 @@ export const vi = {
   "panel.showRaw": "Xem điều kiện thô và dữ liệu gốc",
   "panel.hideRaw": "Thu gọn điều kiện thô",
 
-  "raw.title": "Điều kiện thô",
-  "raw.subtitle": "Giá trị API tại giờ đã chọn.",
   "raw.temperature": "Nhiệt độ",
   "raw.apparent": "Cảm nhận",
   "raw.humidity": "Độ ẩm",
