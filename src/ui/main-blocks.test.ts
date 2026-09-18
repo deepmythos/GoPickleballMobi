@@ -256,18 +256,24 @@ describe("màn hình chính — hai khối dời từ sheet Cài đặt", () => 
     ).toBe(0);
   });
 
-  it("(2) thứ tự <main>: ngay sau hero là khối giờ rồi khối sân, cả hai TRƯỚC .reasons", () => {
+  it("(2) thứ tự <main>: khối giờ rồi khối sân nằm ở ĐÁY, SAU .raw và ngay trước footer", () => {
     const root = render(makeState(initialSheetState));
     const main = mainOf(root);
     const heroIndex = main.children.findIndex((child) => hasClass(child, "hero"));
+    const rawIndex = main.children.findIndex((child) => hasClass(child, "raw"));
+    const reasonsIndex = main.children.findIndex((child) => hasClass(child, "reasons"));
     const timeIndex = main.children.findIndex((child) => child.dataset.block === "time");
     const courtIndex = main.children.findIndex((child) => child.dataset.block === "court");
-    const reasonsIndex = main.children.findIndex((child) => hasClass(child, "reasons"));
 
     expect(heroIndex, "thiếu hero").toBeGreaterThanOrEqual(0);
-    expect(timeIndex, "thiếu section[data-block=time]").toBe(heroIndex + 1);
-    expect(courtIndex, "thiếu section[data-block=court]").toBe(heroIndex + 2);
-    expect(reasonsIndex, "thiếu section.reasons").toBeGreaterThan(courtIndex);
+    expect(reasonsIndex, "thiếu section.reasons").toBeGreaterThan(heroIndex);
+    expect(rawIndex, "thiếu section.raw").toBeGreaterThan(reasonsIndex);
+    // Hai khối KHÔNG còn ngay sau hero; chúng ở cuối <main>, sau .raw.
+    expect(timeIndex, "thiếu section[data-block=time]").toBeGreaterThan(rawIndex);
+    expect(courtIndex, "thiếu section[data-block=court]").toBe(timeIndex + 1);
+    // "Ngay trước footer": footer là em của <main>, nên hai khối phải là hai con CUỐI của <main>.
+    expect(courtIndex, "khối sân phải là con cuối cùng của <main>").toBe(main.children.length - 1);
+    expect(timeIndex, "khối giờ phải ngay trước khối sân").toBe(courtIndex - 1);
   });
 
   it("(3) kéo tay nắm `to` 18 -> 19: CẢ HAI hình đổi đầu cuối trong cùng một turn, giữ nguyên <svg>", () => {

@@ -980,11 +980,13 @@ export function renderApp(root: HTMLElement, state: AppState, actions: Actions):
     renderUpdateBanner(state, actions),
     renderBanner(state),
     ev ? renderHero(state, animate) : renderStatus(state, actions),
-    // hai khối dời từ sheet Cài đặt; đổi thứ tự = đổi hai dòng này
-    renderTimeBlock(state, actions),
-    renderCourtBlock(state, actions),
     ev ? renderFactors(state, actions, animate) : renderInfo(state, actions),
     ev ? renderRaw(state, actions) : null,
+    // Hai khối dời từ sheet Cài đặt, nay nằm ở ĐÁY màn hình chính: SAU mục "điều kiện thô"
+    // (section.raw) và ngay TRƯỚC footer — đúng chỗ khối "Giả định" đã bị bỏ.
+    // Đổi thứ tự trong <main> = đổi hai dòng này.
+    renderTimeBlock(state, actions),
+    renderCourtBlock(state, actions),
   );
 
   const app = h(
