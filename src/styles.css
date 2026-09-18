@@ -85,6 +85,12 @@
 
   /* Chỉ số so le do render.ts ghi qua inline style; khai báo ở đây để không thiếu token. */
   --reveal-index: 0;
+
+  /* Khoảng CHỪA THÊM phía trên app bar = 1,5 dòng của dòng chữ đầu (tên sân: --fs-md,
+     line-height kế thừa --lh-normal) ⇒ 1.5 × 1.5 × 15px = 33.75px. Khai báo ở đây (không
+     phải trong .appbar) theo DESIGN.md §2: mọi giá trị thị giác đi qua token :root.
+     Vì sao cần: trên iPhone ~1,5 dòng chữ đầu của thanh vẫn bị nhạt dù đã bỏ hẳn lớp kính. */
+  --appbar-lead: calc(1.5 * var(--lh-normal) * var(--fs-md));
 }
 
 @media (prefers-color-scheme: dark) {
@@ -232,14 +238,11 @@ body {
   gap: var(--space-1);
   /* CHỪA DẢI TRÊN CÙNG (workaround theo yêu cầu trực tiếp của chủ dự án, 18/09):
      trên iPhone, ~1,5 dòng chữ ĐẦU của thanh vẫn bị nhạt dù đã bỏ hẳn lớp kính — tức lớp
-     kính không phải nguyên nhân duy nhất. Nên chừa thêm ~1,5 dòng phía trên để chữ nằm
-     thấp hơn, ra khỏi dải trên cùng của màn hình.
-     1,5 dòng của dòng chữ đầu (tên sân): cỡ chữ --fs-md, line-height kế thừa --lh-normal
-     ⇒ 1.5 × 1.5 × 15px = 33.75px, CỘNG LÊN TRÊN phần chừa safe-area sẵn có — không thay
-     thế nó, nên không có chữ nào lọt xuống dưới notch.
+     kính không phải nguyên nhân duy nhất. Nên chừa thêm 1,5 dòng phía trên để chữ nằm thấp
+     hơn, ra khỏi dải trên cùng của màn hình. Token --appbar-lead = 33.75px, CỘNG LÊN TRÊN
+     phần chừa safe-area sẵn có — không thay thế nó, nên không có chữ nào lọt dưới notch.
      Chừa trên nhiều hơn dưới là CỐ Ý: dải trên chính là vùng thanh trạng thái iOS vẽ đè,
      còn dưới thanh chỉ cần khoảng thở thường. */
-  --appbar-lead: calc(1.5 * var(--lh-normal) * var(--fs-md));
   padding-top: calc(max(env(safe-area-inset-top), var(--space-2)) + var(--appbar-lead));
   padding-bottom: var(--space-2);
   /* NỀN ĐỤC (màu surface của chủ đề) — thanh KHÔNG còn lớp kính nào.
