@@ -588,6 +588,9 @@ function start(): void {
 
   function onTouchStart(e: TouchEvent): void {
     if (e.touches.length !== 1) {
+      // Ngón thứ hai chạm vào => bỏ cử chỉ đang dở. Phải trả state (và DOM) về vị trí nghỉ
+      // TRƯỚC khi quên nó, nếu không sheet đứng lệch vĩnh viễn.
+      if (state.sheet.dragging || state.sheet.dragOffsetPx > 0) finishDrag(0);
       touchState = null;
       return;
     }
@@ -662,7 +665,8 @@ function start(): void {
         }
         // Cử chỉ kết thúc theo hướng ngang nhưng KHÔNG phải vuốt lùi: lần kéo dọc bị bỏ dở
         // phải được trả về vị trí nghỉ, nếu không state (và DOM) đứng lệch cho tới lần kéo sau.
-        if (ts.dragging) finishDrag(0);
+        // Chỉ khi state THỰC SỰ đang giữ một lần kéo (dragStart đã chạy) mới cần trả về vị trí nghỉ.
+        if (state.sheet.dragging || state.sheet.dragOffsetPx > 0) finishDrag(0);
         return;
       }
     }

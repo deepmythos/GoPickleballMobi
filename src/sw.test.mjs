@@ -14,7 +14,7 @@ const SOURCE = readFileSync(TEMPLATE, "utf8")
  * Nạp service worker THẬT trong sandbox stub. Chạy đúng handler `fetch` như trình duyệt gọi,
  * không chỉ grep chuỗi trong file.
  */
-function loadServiceWorker() {
+function loadServiceWorker({ cacheHit = true } = {}) {
   const handlers = {};
   const matchCalls = [];
   const fetchCalls = [];
@@ -29,7 +29,7 @@ function loadServiceWorker() {
   const caches = {
     match(request, options) {
       matchCalls.push({ request, options });
-      return Promise.resolve(cached);
+      return Promise.resolve(cacheHit ? cached : undefined);
     },
     open() {
       return Promise.resolve({
@@ -99,5 +99,24 @@ describe("service worker — payload cùng origin không được rơi vào cach
     expect(matchCalls).toHaveLength(1);
     expect(matchCalls[0].options).toEqual({ ignoreVary: true });
     expect(fetchCalls).toHaveLength(0);
+  });
+
+  it("CASE 3: cache miss cho app shell tĩnh vẫn ghi lại vào cache (đường GHI thật sự)", async () => {
+    const { handlers, matchCalls, fetchCalls, putCalls } = loadServiceWorker({ cacheHit: false });
+    const request = {
+      method: "GET",
+      url: "https://app.test/index.html",
+      destination: "document",
+      mode: "navigate",
+    };
+    const event = fetchEvent(request);
+    handlers.fetch(event);
+    await event.promise;
+    // Đường ghi cache là fire-and-forget (blob -> caches.open -> put), cần nhường microtask queue.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(matchCalls).toHaveLength(1);
+    expect(matchCalls[0].options).toEqual({ ignoreVary: true });
+    expect(fetchCalls).toHaveLength(1);
+    expect(putCalls).toHaveLength(1);
   });
 });
