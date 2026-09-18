@@ -5,6 +5,9 @@ export type SheetPanel = "none" | "inputs" | "location";
 /** Quãng kéo xuống (px) đủ để đóng sheet khi nhả tay. */
 export const SHEET_DRAG_DISMISS_PX = 96;
 
+/** Quãng kéo xuống (px) mà backdrop mờ dần hết hẳn (opacity chạm 0). */
+export const SHEET_DRAG_FADE_PX = 320;
+
 export interface SheetState {
   panel: SheetPanel; // "none" = đóng
   dragging: boolean;
@@ -53,5 +56,5 @@ export function isSheetOpen(state: SheetState): boolean {
 /** Hình dáng thị giác của lần kéo: một công thức duy nhất cho cả render lẫn fast-path mỗi frame. */
 export function dragVisual(offsetPx: number): { offsetPx: number; backdropOpacity: number } {
   const offset = Math.max(0, offsetPx);
-  return { offsetPx: offset, backdropOpacity: Math.max(0, 1 - offset / 320) };
+  return { offsetPx: offset, backdropOpacity: Math.max(0, 1 - offset / SHEET_DRAG_FADE_PX) };
 }

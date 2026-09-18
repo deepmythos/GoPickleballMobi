@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { runInNewContext } from "node:vm";
 import { describe, expect, it } from "vitest";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -17,6 +18,7 @@ function loadServiceWorker() {
   const handlers = {};
   const matchCalls = [];
   const fetchCalls = [];
+  const putCalls = [];
   const cached = new Response("cached-shell", { status: 200 });
   const self = {
     location: { origin: "https://app.test" },
@@ -30,7 +32,12 @@ function loadServiceWorker() {
       return Promise.resolve(cached);
     },
     open() {
-      return Promise.resolve({ put: () => Promise.resolve() });
+      return Promise.resolve({
+        put(request, response) {
+          putCalls.push({ request, response });
+          return Promise.resolve();
+        },
+      });
     },
     keys() {
       return Promise.resolve([]);
@@ -43,16 +50,8 @@ function loadServiceWorker() {
     fetchCalls.push({ request, options });
     return Promise.resolve(new Response("network", { status: 200 }));
   };
-  new Function("self", "caches", "fetch", "Headers", "Request", "Response", "URL", SOURCE)(
-    self,
-    caches,
-    fetch,
-    Headers,
-    Request,
-    Response,
-    URL,
-  );
-  return { handlers, matchCalls, fetchCalls, cached };
+  runInNewContext(SOURCE, { self, caches, fetch, Headers, Request, Response, URL });
+  return { handlers, matchCalls, fetchCalls, putCalls, cached };
 }
 
 /** Event stub tối thiểu của FetchEvent. */
@@ -71,7 +70,7 @@ function fetchEvent(request) {
 
 describe("service worker — payload cùng origin không được rơi vào cache shell", () => {
   it("CASE 1: payload cùng origin (destination rỗng) đi thẳng ra network, không tra cache", () => {
-    const { handlers, matchCalls, fetchCalls } = loadServiceWorker();
+    const { handlers, matchCalls, fetchCalls, putCalls } = loadServiceWorker();
     const request = {
       method: "GET",
       url: "https://app.test/v1/forecast?latitude=1",
@@ -83,6 +82,7 @@ describe("service worker — payload cùng origin không được rơi vào cach
     expect(fetchCalls).toHaveLength(1);
     expect(fetchCalls[0].request).toBe(request);
     expect(matchCalls).toHaveLength(0);
+    expect(putCalls).toHaveLength(0);
   });
 
   it("CASE 2: app shell tĩnh (navigate/document) vẫn cache-first với ignoreVary", async () => {

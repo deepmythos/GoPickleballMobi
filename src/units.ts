@@ -35,7 +35,9 @@ const UNIT_TEXT_TO_KEY: Record<string, MessageKey> = Object.fromEntries(
 
 /** Tra ngược chuỗi hiển thị -> khoá i18n; null nếu không có trong bảng (vd "bool"). */
 export function unitKey(unit: string): MessageKey | null {
-  return UNIT_TEXT_TO_KEY[unit] ?? null;
+  return Object.prototype.hasOwnProperty.call(UNIT_TEXT_TO_KEY, unit)
+    ? UNIT_TEXT_TO_KEY[unit]
+    : null;
 }
 
 /** Chuỗi hiển thị của đơn vị theo ngôn ngữ; không tra được thì trả nguyên chuỗi cũ. */

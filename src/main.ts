@@ -658,7 +658,11 @@ function start(): void {
         const outcome = swipeLatch.decide(sample);
         if (outcome === "back" && isSheetOpen(state.sheet)) {
           actions.closeSheet();
+          return;
         }
+        // Cử chỉ kết thúc theo hướng ngang nhưng KHÔNG phải vuốt lùi: lần kéo dọc bị bỏ dở
+        // phải được trả về vị trí nghỉ, nếu không state (và DOM) đứng lệch cho tới lần kéo sau.
+        if (ts.dragging) finishDrag(0);
         return;
       }
     }

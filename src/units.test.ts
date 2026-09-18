@@ -42,7 +42,11 @@ describe("units — đơn vị hiển thị phải đi qua từ điển", () => 
 
   it("unitKey('bool') là null và unitText fallback không nuốt chuỗi lạ", () => {
     expect(unitKey("bool")).toBeNull();
+    expect(unitKey("constructor")).toBeNull();
+    expect(unitKey("toString")).toBeNull();
+    expect(unitKey("__proto__")).toBeNull();
     expect(unitText("vi", "bool")).toBe("bool");
+    expect(unitText("vi", "constructor")).toBe("constructor");
     expect(unitText("de", "không-có-trong-bảng")).toBe("không-có-trong-bảng");
   });
 
