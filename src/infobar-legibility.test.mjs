@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
  *
  * Vì sao có test này (lần 2 — lần 1 đã sai): trên iPhone, tên sân và giờ đang tính bị
  * nhạt đi trong khi toạ độ, độ lệch UTC và điểm số vẫn nét. Bản sửa lần 1 tách kính ra
- * `.appbar::before` (z-index 0) rồi nâng chữ lên `z-index: 1`; trên máy thật WebKit vẫn
+ * `.infobar::before` (z-index 0) rồi nâng chữ lên `z-index: 1`; trên máy thật WebKit vẫn
  * ghép lớp `backdrop-filter` LÊN TRÊN chữ, và lớp kính còn lộ ra thành một mảng xám
  * riêng. Kết luận: trên WebKit không thể trông cậy vào thứ tự lớp giữa một lớp
  * `backdrop-filter` và chữ của phần tử cha — cách sửa phải là BỎ hẳn kính.
@@ -79,7 +79,7 @@ function zIndexOf(body) {
 
 /** Rule nào cũng có thể áp lên một phần tử trong thanh trên (kể cả pseudo-element). */
 function barRules(css) {
-  return rules(css).filter((r) => /\.appbar\b/.test(r.selector));
+  return rules(css).filter((r) => /\.infobar\b/.test(r.selector));
 }
 
 function bodyOf(css, selector) {
@@ -118,7 +118,7 @@ function distCssFiles() {
     .map((name) => resolve(dir, name));
 }
 
-describe("thanh trên — không còn lớp kính nào có thể nằm trên chữ", () => {
+describe("khối thông tin — không còn lớp kính nào có thể nằm trên chữ", () => {
   it("1. KHÔNG rule nào của thanh khai backdrop-filter (nguồn)", () => {
     const found = [];
     for (const rule of barRules(source)) {
@@ -130,13 +130,13 @@ describe("thanh trên — không còn lớp kính nào có thể nằm trên ch�
     expect(found, "thanh trên còn lớp kính — WebKit sẽ vẽ nó lên trên chữ").toEqual([]);
   });
 
-  it("2. không còn lớp kính giả (.appbar::before/::after) và không còn mẹo xếp lớp", () => {
+  it("2. không còn lớp kính giả (.infobar::before/::after) và không còn mẹo xếp lớp", () => {
     const pseudo = rules(source)
-      .filter((r) => /^\.appbar::(before|after)$/.test(r.selector))
+      .filter((r) => /^\.infobar::(before|after)$/.test(r.selector))
       .map((r) => r.selector);
     expect(pseudo, "lớp kính phải bị XOÁ, không phải chuyển sang pseudo-element").toEqual([]);
 
-    const content = bodyOf(source, ".appbar > *");
+    const content = bodyOf(source, ".infobar > *");
     expect(content, "không được nâng nội dung thanh bằng z-index để né lớp kính").toBeNull();
 
     const tricks = [];
@@ -147,7 +147,7 @@ describe("thanh trên — không còn lớp kính nào có thể nằm trên ch�
       }
       // z-index của CHÍNH thanh là hợp lệ (thanh phải nằm trên .sheet-backdrop, z-index 50).
       // Điều bị cấm là xếp lớp cho NỘI DUNG trong thanh để né một lớp kính.
-      if (rule.selector !== ".appbar") {
+      if (rule.selector !== ".infobar") {
         const z = zIndexOf(rule.body);
         if (z !== null && z > 1) tricks.push(`${rule.selector} { z-index: ${z} }`);
       }
@@ -156,8 +156,8 @@ describe("thanh trên — không còn lớp kính nào có thể nằm trên ch�
   });
 
   it("3. nền của chính thanh là ĐỤC (màu surface của chủ đề)", () => {
-    const bar = bodyOf(source, ".appbar");
-    expect(bar, "thiếu rule .appbar").not.toBeNull();
+    const bar = bodyOf(source, ".infobar");
+    expect(bar, "thiếu rule .infobar").not.toBeNull();
     const background = decl(bar, "background") ?? decl(bar, "background-color");
     expect(
       isOpaqueBackground(background),
@@ -181,7 +181,7 @@ describe("thanh trên — không còn lớp kính nào có thể nằm trên ch�
 
   it("5. hai dòng chữ (tên sân, giờ đang tính) không cần z-index/opacity để nổi lên", () => {
     const bad = [];
-    for (const selector of [".appbar-loc-name", ".appbar-time-value"]) {
+    for (const selector of [".infobar-loc-name", ".infobar-time-value"]) {
       const body = bodyOf(source, selector);
       if (body === null) continue;
       for (const prop of ["z-index", "opacity", "position"]) {
@@ -193,7 +193,7 @@ describe("thanh trên — không còn lớp kính nào có thể nằm trên ch�
   });
 
   it("6. nút X của sheet vẫn ≥ 44×44 và có touch-action cho cú chạm tức thì", () => {
-    for (const selector of [".sheet-close", ".appbar-back", ".banner-dismiss"]) {
+    for (const selector of [".sheet-close", ".banner-dismiss"]) {
       const body = bodyOf(source, selector);
       expect(body, `thiếu rule ${selector}`).not.toBeNull();
       const px = (value) => Number.parseFloat(String(value).replace("px", ""));
@@ -203,10 +203,17 @@ describe("thanh trên — không còn lớp kính nào có thể nằm trên ch�
       expect(h, `${selector} phải cao ≥ 44px`).toBeGreaterThanOrEqual(44);
     }
     expect(decl(bodyOf(source, ".sheet-close"), "touch-action")).toBe("manipulation");
+
+    // Nút mở bảng Địa điểm giờ nằm trong khối thông tin: vẫn phải ≥ 44×44.
+    const loc = bodyOf(source, ".infobar-loc");
+    expect(loc, "thiếu rule .infobar-loc").not.toBeNull();
+    const pxOf = (value) => Number.parseFloat(String(value).replace("px", ""));
+    expect(pxOf(decl(loc, "min-width")), ".infobar-loc phải rộng ≥ 44px").toBeGreaterThanOrEqual(44);
+    expect(pxOf(decl(loc, "min-height")), ".infobar-loc phải cao ≥ 44px").toBeGreaterThanOrEqual(44);
   });
 });
 
-describe("thanh trên — CSS ĐÃ BUILD cũng phải sạch kính", () => {
+describe("khối thông tin — CSS ĐÃ BUILD cũng phải sạch kính", () => {
   const files = distCssFiles();
   const run = files.length > 0 ? it : it.skip;
 
@@ -224,15 +231,15 @@ describe("thanh trên — CSS ĐÃ BUILD cũng phải sạch kính", () => {
     expect(offenders, "bản build vẫn còn kính trên thanh (minifier giữ lại bản -webkit-)").toEqual([]);
   });
 
-  run("8. trong bản build, `.appbar` có nền đục và không có pseudo-element kính", () => {
+  run("8. trong bản build, `.infobar` có nền đục và không có pseudo-element kính", () => {
     for (const file of files) {
       const css = readFileSync(file, "utf8");
-      const bar = bodyOf(css, ".appbar");
+      const bar = bodyOf(css, ".infobar");
       if (bar === null) continue;
       expect(isOpaqueBackground(decl(bar, "background") ?? decl(bar, "background-color"))).toBe(true);
       expect(
-        rules(css).some((r) => /^\.appbar::(before|after)$/.test(r.selector)),
-        `${file} còn .appbar::before/::after`,
+        rules(css).some((r) => /^\.infobar::(before|after)$/.test(r.selector)),
+        `${file} còn .infobar::before/::after`,
       ).toBe(false);
     }
   });

@@ -199,11 +199,6 @@ describe("nút X — hit-test: cú chạm thuộc về điều khiển, không b
       { name: "sheet Địa điểm", card: state({ sheet: openSheet("location") }), cls: "sheet-close" },
       { name: "sheet Thông số", card: state({ sheet: openSheet("inputs") }), cls: "sheet-close" },
       {
-        name: "mũi tên quay lại trên thanh (sheet đang mở)",
-        card: state({ sheet: openSheet("location") }),
-        cls: "appbar-back",
-      },
-      {
         name: "nút X của băng 'có bản mới'",
         card: state({ update: { available: true, dismissed: false } }),
         cls: "banner-dismiss",
