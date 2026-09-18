@@ -89,12 +89,13 @@ function byClass(root: FakeNode, cls: string): FakeNode[] {
   return findAll(root, (node) => (node.attrs.class ?? node.className).split(/\s+/).includes(cls));
 }
 
-/** Hình sân ĐẦY ĐỦ trong sheet Cài đặt (bỏ qua hình thu gọn ở hàng "chói nắng"). */
-function sheetDiagram(root: FakeNode): FakeNode {
-  const sheet = byClass(root, "sheet")[0];
-  if (!sheet) throw new Error("thiếu .sheet");
-  const svg = byClass(sheet, "court-diagram")[0];
-  if (!svg) throw new Error("thiếu svg.court-diagram trong sheet");
+/**
+ * Hình sân ĐẦY ĐỦ trên MÀN HÌNH CHÍNH (khối sân vừa dời khỏi sheet Cài đặt).
+ * Bỏ qua hình compact ở hàng "chói nắng" bằng selector data-variant="full".
+ */
+function fullDiagram(root: FakeNode): FakeNode {
+  const svg = byClass(root, "court-diagram").find((node) => node.attrs["data-variant"] === "full");
+  if (!svg) throw new Error("thiếu svg.court-diagram[data-variant=full] trên màn hình chính");
   return svg;
 }
 
@@ -215,7 +216,7 @@ function sunAt(hour: string) {
 describe("hình sân — khoảng mặt trời (hai mặt trời + cung chuyển động)", () => {
   it("(i–iv) vẽ đúng hai đầu, cung tăng dần, hai nhãn giờ và aria-label mô tả cả khoảng", () => {
     const root = render(makeState());
-    const svg = sheetDiagram(root);
+    const svg = fullDiagram(root);
     expect(svg, "thiếu svg.court-diagram").toBeDefined();
 
     // (i) Phương vị hai đầu khớp solarPosition() tính ĐỘC LẬP trong test (±2°).
@@ -235,9 +236,9 @@ describe("hình sân — khoảng mặt trời (hai mặt trời + cung chuyển
       `[court-sun] start 16:00 az=${expectedStart.azimuth.toFixed(2)}°, end 18:00 az=${expectedEnd.azimuth.toFixed(2)}°`,
     );
 
-    // (ii) Một path cung, có dấu chiều tăng dần, hai góc = hai phương vị, sweep-flag = 1.
-    const arcs = byClass(root, "cd-sun-arc");
-    expect(arcs.length, "phải có đúng một cung cd-sun-arc").toBe(1);
+    // (ii) Một path cung của hình FULL, có dấu chiều tăng dần, hai góc = hai phương vị, sweep-flag = 1.
+    const arcs = byClass(svg, "cd-sun-arc");
+    expect(arcs.length, "phải có đúng một cung cd-sun-arc trên hình full").toBe(1);
     const arc = arcs[0];
     expect(arc.tagName).toBe("path");
     expect(arc.attrs["data-sun-arc-sweep"]).toBe("1");
@@ -247,10 +248,10 @@ describe("hình sân — khoảng mặt trời (hai mặt trời + cung chuyển
     expect(sweep).toBeGreaterThan(0);
     expect(sweep).toBeLessThan(360);
     expect(arc.attrs.d, "cung phải dùng sweep-flag = 1").toMatch(/A\s+[\d.]+\s+[\d.]+\s+0\s+[01]\s+1\s/);
-    expect(byClass(root, "cd-sun-arc-head").length, "thiếu đầu mũi tên cung").toBe(1);
+    expect(byClass(svg, "cd-sun-arc-head").length, "thiếu đầu mũi tên cung").toBe(1);
 
     // (iii) Đúng hai nhãn giờ mang hai mốc của cửa sổ.
-    const hourLabels = byClass(root, "cd-sun-hour").map((node) => node.textContent);
+    const hourLabels = byClass(svg, "cd-sun-hour").map((node) => node.textContent);
     expect(hourLabels.length).toBe(2);
     expect([...hourLabels].sort()).toEqual(["16:00", "18:00"]);
 
@@ -263,7 +264,7 @@ describe("hình sân — khoảng mặt trời (hai mặt trời + cung chuyển
 
   it("cập nhật TẠI CHỖ khi kéo tay nắm `to`: cùng <svg>, đầu cuối đổi theo", () => {
     const root = render(makeState());
-    const svg = sheetDiagram(root);
+    const svg = fullDiagram(root);
     const toHandle = findAll(
       root,
       (node) =>
@@ -275,13 +276,13 @@ describe("hình sân — khoảng mặt trời (hai mặt trời + cung chuyển
     expect(toHandle, "thiếu tay nắm `to`").toBeDefined();
 
     const beforeEnd = Number(svg.attrs["data-sun-azimuth-end"]);
-    const beforeArcEnd = Number(byClass(root, "cd-sun-arc")[0].attrs["data-sun-arc-end"]);
+    const beforeArcEnd = Number(byClass(svg, "cd-sun-arc")[0].attrs["data-sun-arc-end"]);
 
     // Kéo `to` từ 18:00 lên 19:00.
     toHandle.listeners.input({ target: { value: "19" } });
 
-    const afterSvg = sheetDiagram(root);
-    const afterArc = byClass(root, "cd-sun-arc")[0];
+    const afterSvg = fullDiagram(root);
+    const afterArc = byClass(afterSvg, "cd-sun-arc")[0];
     const afterEnd = Number(afterSvg.attrs["data-sun-azimuth-end"]);
     const afterArcEnd = Number(afterArc.attrs["data-sun-arc-end"]);
     const expectedNewEnd = sunAt("2026-06-21T19:00");
@@ -297,13 +298,13 @@ describe("hình sân — khoảng mặt trời (hai mặt trời + cung chuyển
     expect(afterArcEnd).not.toBe(beforeArcEnd);
     expect(angleDelta(afterEnd, expectedNewEnd.azimuth)).toBeLessThanOrEqual(2);
     // Nhãn giờ cuối cũng đổi theo, và vẫn còn đủ hai mặt trời.
-    expect([...byClass(root, "cd-sun-hour").map((node) => node.textContent)].sort()).toEqual([
+    expect([...byClass(afterSvg, "cd-sun-hour").map((node) => node.textContent)].sort()).toEqual([
       "16:00",
       "19:00",
     ]);
   });
 
-  it("(2.4) bản compact 150×150 vẫn vẽ đủ hai mặt trời + cung (đo độ đọc được)", () => {
+  it("(2.4) bản compact không còn chữ trang trí: 0 <text>, vẫn đủ hai mặt trời + cung tăng dần", () => {
     const start = sunAt(FROM);
     const end = sunAt(TO);
     const svg = courtDiagram({
@@ -319,24 +320,23 @@ describe("hình sân — khoảng mặt trời (hai mặt trời + cung chuyển
       northLabel: "B",
     }) as unknown as FakeNode;
 
-    // Không hề bỏ sót: vẫn đủ hai lõi mặt trời, hai nhãn giờ và một cung.
-    expect(byClass(svg, "cd-sun-core").length).toBe(2);
-    expect(byClass(svg, "cd-sun-hour").length).toBe(2);
-    expect(byClass(svg, "cd-sun-arc").length).toBe(1);
-    expect(svg.attrs.width).toBe("150");
-    expect(svg.attrs.height).toBe("150");
+    // F: bản compact BỎ HẲN chữ trang trí — ở ô 64px chữ 10–11px chỉ còn ~1.8–2.0px.
+    expect(svg.attrs["data-variant"]).toBe("compact");
+    expect(findAll(svg, (node) => node.tagName === "text").length, "compact phải có 0 <text>").toBe(0);
+    expect(byClass(svg, "cd-north").length).toBe(0);
+    expect(byClass(svg, "cd-sun-hour").length).toBe(0);
 
-    // Đo trên hệ toạ độ thật: viewBox 352 đơn vị vẽ vào 150 px.
-    const scale = 150 / 352;
-    const arcRadiusPx = 143 * scale;
-    const sunCoreRadiusPx = 11 * scale;
-    const hourFontPx = 10 * scale;
-    console.log(
-      `[court-sun] compact 150×150: arc r≈${arcRadiusPx.toFixed(1)}px, ` +
-        `sun core r≈${sunCoreRadiusPx.toFixed(1)}px, hour label≈${hourFontPx.toFixed(1)}px ` +
-        `(dưới ngưỡng đọc ~11px — có vẽ nhưng khó đọc)`,
-    );
-    expect(arcRadiusPx).toBeCloseTo(60.9, 1);
-    expect(hourFontPx).toBeLessThan(11);
+    // Không hề bỏ sót hình: vẫn đủ hai lõi mặt trời, một cung, đầu mũi tên.
+    expect(byClass(svg, "cd-sun-core").length).toBe(2);
+    expect(byClass(svg, "cd-sun-arc").length).toBe(1);
+    expect(byClass(svg, "cd-sun-arc-head").length).toBe(1);
+    const sweep =
+      (((Number(byClass(svg, "cd-sun-arc")[0].attrs["data-sun-arc-end"]) -
+        Number(byClass(svg, "cd-sun-arc")[0].attrs["data-sun-arc-start"])) %
+        360) +
+        360) %
+      360;
+    expect(sweep, "cung compact phải tăng dần").toBeGreaterThan(0);
+    expect(sweep).toBeLessThan(360);
   });
 });

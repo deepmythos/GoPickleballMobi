@@ -162,6 +162,9 @@ describe("sheet Điều chỉnh — mã phiên bản và kiểm tra cập nhật
     expect(sheet, "thiếu .sheet").toBeDefined();
     const children = sheet.children;
     expect(children[0].className).toContain("sheet-title");
+    // Sau khi dời KHỐI NGÀY/GIỜ và KHỐI HƯỚNG SÂN lên màn hình chính, sheet chỉ còn:
+    // tiêu đề + đèn + ngôn ngữ + theme + nút đổi vị trí + khối phiên bản = 6 con.
+    expect(children.length, "sheet phải còn đúng 6 con").toBe(6);
     const last = children[children.length - 1];
     // Con cuối phải là setting-block chứa đúng một .build-marker và một nút data-build-check.
     expect(last.className.split(/\s+/)).toContain("setting-block");

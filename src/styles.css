@@ -541,6 +541,22 @@ body {
   color: var(--muted);
 }
 
+/* Hai khối dời từ sheet Cài đặt lên màn hình chính: giữ nhịp dọc như mọi .section,
+   canh giữa hình full và chặn tràn ngang ở bề rộng 390/428. */
+section[data-block] {
+  gap: var(--space-3);
+}
+
+section[data-block="court"] .bearing-row {
+  min-height: 44px;
+}
+
+section[data-block] svg.court-diagram {
+  align-self: center;
+  max-width: 100%;
+  height: auto;
+}
+
 /* ----------------------------------------------------------------- gates */
 
 .gates {

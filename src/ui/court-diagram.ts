@@ -41,6 +41,8 @@ export interface CourtDiagramSunPoint {
 export interface CourtDiagramSunRange {
   start: CourtDiagramSunPoint;
   end: CourtDiagramSunPoint;
+  /** Giờ giữa khoảng (caller dịch), chỉ dùng cho nhãn aria — hình không vẽ. */
+  midpoint?: string;
 }
 
 export interface CourtDiagramInput {
@@ -60,6 +62,11 @@ export interface CourtDiagramInput {
   variant?: CourtDiagramVariant;
   /** Caller dựng sẵn (i18n nằm ở render.ts). */
   ariaLabel: string;
+  /**
+   * Dựng lại nhãn aria theo bearing + khoảng mặt trời HIỆN TẠI. Nhờ vậy khi kéo tay nắm
+   * hoặc xoay bearing, hình tự cập nhật nhãn tại chỗ mà không cần render lại app.
+   */
+  ariaLabelFor?: (bearing: number, range: CourtDiagramSunRange | null) => string;
   /** Chữ N trên hình, caller truyền (vi "B", de/en "N"). */
   northLabel: string;
   /** Nhãn NGẮN hiện khi trời tối. */
@@ -168,6 +175,9 @@ interface Registered {
 
 // Tham chiếu nội bộ để xoay lại mà không cần querySelector (test node dựng DOM giả).
 const registry = new WeakMap<SVGElement, Registered>();
+// Danh sách hình ĐANG SỐNG. DOM bị xoá mỗi lần renderApp nên renderApp gọi
+// resetCourtDiagrams() ở đầu để không giữ tham chiếu tới cây DOM cũ.
+const liveDiagrams = new Set<SVGElement>();
 
 let clipSeq = 0;
 
@@ -224,21 +234,26 @@ function increasingSweep(startAzimuth: number, endAzimuth: number): number {
   return (((endAzimuth - startAzimuth) % 360) + 360) % 360;
 }
 
-/** Một mặt trời của khoảng, kèm nhãn giờ nằm ngang (xoay bù -azimuth để chữ không nghiêng). */
-function buildRangeSunGlyph(point: CourtDiagramSunPoint): SVGElement {
+/**
+ * Một mặt trời của khoảng. Bản "full" kèm nhãn giờ nằm ngang (xoay bù -azimuth để chữ
+ * không nghiêng); bản "compact" bỏ HẲN chữ vì ở ô 64px không còn đọc được.
+ */
+function buildRangeSunGlyph(point: CourtDiagramSunPoint, showLabel: boolean): SVGElement {
   const group = el("g", { transform: `rotate(${point.azimuth} 0 0)` });
   group.appendChild(buildSunGlyph());
-  group.appendChild(
-    el(
-      "text",
-      {
-        class: "cd-sun-hour",
-        transform: `translate(0 ${-(SUN_DIST - 26)}) rotate(${-point.azimuth})`,
-        "text-anchor": "middle",
-      },
-      point.label,
-    ),
-  );
+  if (showLabel) {
+    group.appendChild(
+      el(
+        "text",
+        {
+          class: "cd-sun-hour",
+          transform: `translate(0 ${-(SUN_DIST - 26)}) rotate(${-point.azimuth})`,
+          "text-anchor": "middle",
+        },
+        point.label,
+      ),
+    );
+  }
   return group;
 }
 
@@ -304,15 +319,16 @@ function buildSunLayer(
   state: SunState,
   sun: { azimuth: number; elevation: number } | null,
   sunRange: CourtDiagramSunRange | null,
-  noSunLabel?: string,
+  noSunLabel: string | undefined,
+  showLabels: boolean,
 ): SVGElement {
   const layer = el("g", { "data-sun-layer": "1" });
   if (state === "unknown" || !sun) return layer;
   if (state === "day" && sunRange) {
     const arc = buildSunArc(sunRange);
     if (arc) layer.appendChild(arc);
-    layer.appendChild(buildRangeSunGlyph(sunRange.start));
-    layer.appendChild(buildRangeSunGlyph(sunRange.end));
+    layer.appendChild(buildRangeSunGlyph(sunRange.start, showLabels));
+    layer.appendChild(buildRangeSunGlyph(sunRange.end, showLabels));
     return layer;
   }
   const sunRotor = el("g", { "data-sun-rotor": "1", transform: `rotate(${sun.azimuth} 0 0)` });
@@ -321,7 +337,7 @@ function buildSunLayer(
     sunRotor.appendChild(buildLightArrow());
   } else {
     sunRotor.appendChild(buildMoonGlyph());
-    if (noSunLabel) {
+    if (noSunLabel && showLabels) {
       sunRotor.appendChild(
         el(
           "text",
@@ -353,6 +369,7 @@ export function courtDiagram(input: CourtDiagramInput): SVGElement {
     width: size,
     height: size,
     xmlns: SVG_NS,
+    "data-variant": variant,
     "data-court-bearing": String(input.bearing),
     "data-sun-azimuth": sun ? String(sun.azimuth) : "",
     "data-sun-elevation": sun ? String(sun.elevation) : "",
@@ -377,9 +394,12 @@ export function courtDiagram(input: CourtDiagramInput): SVGElement {
       );
     }
   }
-  svg.appendChild(
-    el("text", { class: "cd-north", x: 0, y: -DIAL_R, "text-anchor": "middle" }, input.northLabel),
-  );
+  // Bản "compact" bỏ HẲN chữ trang trí (kể cả chữ N) — ở ô 64px chúng không đọc được.
+  if (variant === "full") {
+    svg.appendChild(
+      el("text", { class: "cd-north", x: 0, y: -DIAL_R, "text-anchor": "middle" }, input.northLabel),
+    );
+  }
 
   // Toàn bộ sân nằm trong nhóm xoay theo bearing (mặc định 0 = Bắc–Nam).
   const rotor = el("g", { "data-court-rotor": "1", transform: `rotate(${input.bearing} 0 0)` });
@@ -424,16 +444,35 @@ export function courtDiagram(input: CourtDiagramInput): SVGElement {
   // Glyph mặt trời/mặt trăng + mũi tên sáng. Khi có KHOẢNG và giờ giữa là ban ngày thì
   // vẽ hai mặt trời + cung chuyển động; ban đêm/chưa biết giữ nguyên hành vi cũ
   // (mặt trăng kèm nhãn `noSunLabel` / không vẽ gì). Bóng vẫn chỉ vẽ MỘT bộ cho giờ giữa.
-  const sunLayer = buildSunLayer(state, sun, state === "day" ? (input.sunRange ?? null) : null, input.noSunLabel);
+  const showLabels = variant === "full";
+  const sunLayer = buildSunLayer(
+    state,
+    sun,
+    state === "day" ? (input.sunRange ?? null) : null,
+    input.noSunLabel,
+    showLabels,
+  );
   if (state !== "unknown" && sun) {
     svg.appendChild(sunLayer);
     if (state === "day" && input.sunRange) markSunRange(svg, input.sunRange);
   }
 
+  // Trạng thái "đang sống" của hình để hai updater tại chỗ (xoay / đổi khoảng giờ)
+  // luôn dựng lại được nhãn aria đúng với dữ liệu hiện tại.
+  let currentBearing = input.bearing;
+  let currentRange: CourtDiagramSunRange | null = state === "day" ? (input.sunRange ?? null) : null;
+  const ariaFor = input.ariaLabelFor;
+
+  const applyAria = (bearing: number): void => {
+    if (ariaFor) svg.setAttribute("aria-label", ariaFor(bearing, currentRange));
+  };
+
   const redraw = (bearing: number, ariaLabel?: string): void => {
+    currentBearing = bearing;
     rotor.setAttribute("transform", `rotate(${bearing} 0 0)`);
     svg.setAttribute("data-court-bearing", String(bearing));
     if (ariaLabel !== undefined) svg.setAttribute("aria-label", ariaLabel);
+    else applyAria(bearing);
     if (shadow && sun && state === "day") {
       const vector = shadowVector(sun, bearing, variant);
       shadow.setAttribute("points", shadowPoints(vector));
@@ -443,24 +482,28 @@ export function courtDiagram(input: CourtDiagramInput): SVGElement {
 
   // Cập nhật TẠI CHỖ phần mặt trời khi khoảng giờ đổi: xoá lớp cũ rồi dựng lại đúng
   // logic lúc render đầu. Chỉ làm khi giờ giữa là ban ngày (ban đêm giữ mặt trăng).
-  const redrawSun = (sunRange: CourtDiagramSunRange | null | undefined): void => {
+  const redrawSun = (sunRange: CourtDiagramSunRange | null | undefined, ariaLabel?: string): void => {
     if (state !== "day" || !sun) return;
+    currentRange = sunRange ?? null;
     sunLayer.textContent = "";
     if (sunRange) {
       const arc = buildSunArc(sunRange);
       if (arc) sunLayer.appendChild(arc);
-      sunLayer.appendChild(buildRangeSunGlyph(sunRange.start));
-      sunLayer.appendChild(buildRangeSunGlyph(sunRange.end));
+      sunLayer.appendChild(buildRangeSunGlyph(sunRange.start, showLabels));
+      sunLayer.appendChild(buildRangeSunGlyph(sunRange.end, showLabels));
       markSunRange(svg, sunRange);
-      return;
+    } else {
+      const sunRotor = el("g", { "data-sun-rotor": "1", transform: `rotate(${sun.azimuth} 0 0)` });
+      sunRotor.appendChild(buildSunGlyph());
+      sunRotor.appendChild(buildLightArrow());
+      sunLayer.appendChild(sunRotor);
     }
-    const sunRotor = el("g", { "data-sun-rotor": "1", transform: `rotate(${sun.azimuth} 0 0)` });
-    sunRotor.appendChild(buildSunGlyph());
-    sunRotor.appendChild(buildLightArrow());
-    sunLayer.appendChild(sunRotor);
+    if (ariaLabel !== undefined) svg.setAttribute("aria-label", ariaLabel);
+    else applyAria(currentBearing);
   };
 
   registry.set(svg, { redraw, redrawSun });
+  liveDiagrams.add(svg);
   return svg;
 }
 
@@ -476,4 +519,25 @@ export function rotateCourtDiagram(svg: SVGElement, bearing: number, ariaLabel?:
  */
 export function updateCourtDiagramSun(svg: SVGElement, sunRange: CourtDiagramSunRange | null): void {
   registry.get(svg)?.redrawSun(sunRange);
+}
+
+/**
+ * Quên mọi hình của lần render trước. renderApp gọi hàm này NGAY ĐẦU mỗi lần dựng lại
+ * DOM; không có nó, updater sẽ vẽ vào các <svg> đã bị tháo khỏi cây.
+ */
+export function resetCourtDiagrams(): void {
+  liveDiagrams.clear();
+}
+
+/**
+ * Vẽ lại phần mặt trời cho MỌI hình đang sống (bản full trên màn hình chính + bản
+ * compact ở hàng "chói nắng") trong cùng một nhịp kéo tay nắm, không render lại app.
+ */
+export function updateAllCourtDiagramsSun(sunRange: CourtDiagramSunRange | null): void {
+  for (const svg of liveDiagrams) registry.get(svg)?.redrawSun(sunRange);
+}
+
+/** Xoay MỌI hình đang sống tại chỗ khi kéo thanh bearing, không render lại app. */
+export function rotateAllCourtDiagrams(bearing: number): void {
+  for (const svg of liveDiagrams) registry.get(svg)?.redraw(bearing);
 }

@@ -147,7 +147,11 @@ const FACTORS: Evaluation["factors"] = [
   { id: "is_day", value: 1, unit: "bool", impact: 10 },
 ];
 
-function makeEvaluation(sun: { azimuth: number; elevation: number }, isDay = 1): Evaluation {
+function makeEvaluation(
+  sun: { azimuth: number; elevation: number },
+  isDay = 1,
+  range?: Evaluation["range"],
+): Evaluation {
   return {
     targetHour: TARGET_HOUR,
     utcOffsetMinutes: 120,
@@ -159,7 +163,7 @@ function makeEvaluation(sun: { azimuth: number; elevation: number }, isDay = 1):
     sunEnd: sun,
     score: 80,
     verdict: "Nên đi",
-    range: {
+    range: range ?? {
       from: TARGET_HOUR,
       to: TARGET_HOUR,
       spanHours: 0,
@@ -281,29 +285,54 @@ describe("Màn hình chính — hình sân thu gọn trong hàng 'chói nắng t
     expect(angleDelta(azimuths[0], azimuths[1])).toBeGreaterThan(2);
   });
 
-  it("(b) sheet đang mở: hình trên hàng và hình trong sheet cùng phương vị", () => {
+  it("(b) hình full (màn chính) và hình compact (hàng chói) mang CÙNG bộ giá trị", () => {
     const sun = sunAt(TARGET_HOUR, DIETZENBACH);
-    const root = render(state({ sheet: openInputs(), evaluation: makeEvaluation(sun) }));
+    const range: Evaluation["range"] = {
+      from: TARGET_HOUR,
+      to: "2026-06-21T11:00",
+      spanHours: 2,
+      midpointHour: "2026-06-21T10:00",
+      hours: [
+        { hour: TARGET_HOUR, score: 80, verdict: "Nên đi" },
+        { hour: "2026-06-21T10:00", score: 80, verdict: "Nên đi" },
+        { hour: "2026-06-21T11:00", score: 80, verdict: "Nên đi" },
+      ],
+      score: 80,
+      verdict: "Nên đi",
+      countedHours: 3,
+      missingHours: [],
+    };
+    const root = render(state({ sheet: openInputs(), evaluation: makeEvaluation(sun, 1, range) }));
     const row = findGlareRow(root, "vi");
-    const sheet = byClass(root, "sheet")[0];
-    expect(sheet, "thiếu .sheet").toBeDefined();
-    const rowRotor = byAttr(row, "data-sun-rotor")[0];
-    const sheetRotor = byAttr(sheet, "data-sun-rotor")[0];
-    expect(rowRotor, "thiếu rotor ở hàng chói").toBeDefined();
-    expect(sheetRotor, "thiếu rotor trong sheet").toBeDefined();
-    const rowAngle = rotationAngle(rowRotor.attrs.transform);
-    const sheetAngle = rotationAngle(sheetRotor.attrs.transform);
-    expect(angleDelta(rowAngle, sheetAngle), "hai hình vẽ lệch nhau quá 2°").toBeLessThanOrEqual(2);
-    expect(angleDelta(rowAngle, sun.azimuth), "hình hàng lệch azimuth quá 2°").toBeLessThanOrEqual(2);
-    expect(angleDelta(sheetAngle, sun.azimuth), "hình sheet lệch azimuth quá 2°").toBeLessThanOrEqual(2);
+    const compact = diagramIn(row)[0];
+    const courtSection = findAll(root, (n) => n.dataset.block === "court")[0];
+    expect(courtSection, "thiếu section[data-block=court]").toBeDefined();
+    const full = diagramIn(courtSection)[0];
+    expect(full, "thiếu hình full trong khối sân").toBeDefined();
+    expect(compact, "thiếu hình compact trong hàng chói").toBeDefined();
+    expect(full.attrs["data-variant"]).toBe("full");
+    expect(compact.attrs["data-variant"]).toBe("compact");
+    for (const attr of [
+      "data-court-bearing",
+      "data-sun-azimuth-start",
+      "data-sun-azimuth-end",
+      "data-sun-arc-start",
+      "data-sun-arc-end",
+    ]) {
+      expect(compact.attrs[attr], `compact thiếu ${attr}`).toBeDefined();
+      expect(compact.attrs[attr], `compact lệch ${attr} so với full`).toBe(full.attrs[attr]);
+    }
   });
 
-  it("(c) sheet đóng: đúng MỘT hình, nằm trong hàng chói, các hàng khác không có hình", () => {
+  it("(c) sheet đóng: hình full ở khối sân + hình compact ở hàng chói, hàng khác không có hình", () => {
     const sun = sunAt(TARGET_HOUR, DIETZENBACH);
     const root = render(state({ sheet: initialSheetState, evaluation: makeEvaluation(sun) }));
-    expect(diagramIn(root).length, "phải có đúng 1 hình khi sheet đóng").toBe(1);
+    const courtSection = findAll(root, (n) => n.dataset.block === "court")[0];
+    expect(courtSection, "thiếu section[data-block=court]").toBeDefined();
+    expect(diagramIn(courtSection).length, "khối sân phải có đúng 1 hình full").toBe(1);
+    expect(diagramIn(root).length, "phải có đúng 2 hình khi sheet đóng (full + compact)").toBe(2);
     const row = findGlareRow(root, "vi");
-    expect(diagramIn(row).length, "hình phải nằm trong hàng chói").toBe(1);
+    expect(diagramIn(row).length, "hình compact phải nằm trong hàng chói").toBe(1);
     const rows = findAll(
       root,
       (n) => n.tagName === "li" && (n.attrs.class ?? n.className).split(/\s+/).includes("factor"),
@@ -352,7 +381,13 @@ describe("Màn hình chính — hình sân thu gọn trong hàng 'chói nắng t
         const svg = diagramIn(row)[0];
         expect(svg.attrs["data-sun-state"], `sai trạng thái cho ${lang}`).toBe("night");
         expect(byClass(row, "cd-shadow").length, "trời tối không được vẽ bóng").toBe(0);
-        expect(row.textContent).toContain(t(lang, "court.diagramNoSun"));
+        // Bản compact đã bỏ HẲN chữ; nhãn "không nắng" còn ở hình FULL (khối sân).
+        const courtSection = findAll(root, (n) => n.dataset.block === "court")[0];
+        const full = diagramIn(courtSection)[0];
+        expect(full.textContent, `thiếu nhãn không nắng cho ${lang}`).toContain(
+          t(lang, "court.diagramNoSun"),
+        );
+        expect(findAll(svg, (n) => n.tagName === "text").length, "compact phải có 0 <text>").toBe(0);
       }
     }
   });
