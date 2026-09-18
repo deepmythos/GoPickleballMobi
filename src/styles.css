@@ -86,11 +86,17 @@
   /* Chỉ số so le do render.ts ghi qua inline style; khai báo ở đây để không thiếu token. */
   --reveal-index: 0;
 
-  /* Khoảng CHỪA THÊM phía trên app bar = 1,5 dòng của dòng chữ đầu (tên sân: --fs-md,
-     line-height kế thừa --lh-normal) ⇒ 1.5 × 1.5 × 15px = 33.75px. Khai báo ở đây (không
-     phải trong .appbar) theo DESIGN.md §2: mọi giá trị thị giác đi qua token :root.
-     Vì sao cần: trên iPhone ~1,5 dòng chữ đầu của thanh vẫn bị nhạt dù đã bỏ hẳn lớp kính. */
-  --appbar-lead: calc(1.5 * var(--lh-normal) * var(--fs-md));
+  /* Khoảng CHỪA THÊM phía trên app bar = 3,5 dòng của dòng chữ đầu (tên sân: --fs-md,
+     line-height kế thừa --lh-normal) ⇒ 3.5 × 1.5 × 15px = 78.75px. Chủ dự án chốt lại
+     18/09: cộng thêm 2 dòng nữa so với mốc 1,5 dòng trước đó (1,5 + 2 = 3,5 dòng).
+     Khai báo ở đây (không phải trong .appbar) theo DESIGN.md §2: mọi giá trị thị giác đi
+     qua token :root.
+     Vì sao cần: trên iPhone dòng chữ ĐẦU của thanh vẫn bị nhạt dù đã bỏ hẳn lớp kính. */
+  --appbar-lead: calc(3.5 * var(--lh-normal) * var(--fs-md));
+
+  /* KHÔNG thêm token cho lề trên của sheet: src/design-tokens.test.mjs §5 chỉ chấp nhận
+     padding/margin/gap ghi bằng var(--space-*) nên biểu thức được viết thẳng ở .sheet-wrap
+     và .sheet-close (đúng như .appbar đang làm). */
 }
 
 @media (prefers-color-scheme: dark) {
@@ -231,7 +237,9 @@ body {
 .appbar {
   position: sticky;
   top: 0;
-  /* Trên .sheet-backdrop (z-index: 50) để nút .appbar-back vẫn bấm được khi sheet mở. */
+  /* DƯỚI .sheet-backdrop (z-index: 70 từ 18/09): mở sheet là sheet phủ kín màn hình, app bar
+     KHÔNG được hở ra phía trên. Đổi lại nút .appbar-back (chỉ có khi sheet đang mở) không
+     bấm được nữa — đường đóng vẫn còn nguyên: nút X, chạm nền, kéo xuống, cử chỉ back của HĐH. */
   z-index: 60;
   display: flex;
   flex-direction: column;
@@ -244,7 +252,12 @@ body {
      Chừa trên nhiều hơn dưới là CỐ Ý: dải trên chính là vùng thanh trạng thái iOS vẽ đè,
      còn dưới thanh chỉ cần khoảng thở thường. */
   padding-top: calc(max(env(safe-area-inset-top), var(--space-2)) + var(--appbar-lead));
+  /* TRÁI = PHẢI = DƯỚI = --space-2 (8px), đúng yêu cầu chủ dự án 18/09: "lề trái/phải của
+     thanh phải bằng lề dưới". Trước đây trái/phải = 0 vì thanh nằm trong .app (đã có --gutter);
+     lề ngang 0 là thứ làm chữ dính sát mép nền đục của thanh. */
+  padding-right: var(--space-2);
   padding-bottom: var(--space-2);
+  padding-left: var(--space-2);
   /* NỀN ĐỤC (màu surface của chủ đề) — thanh KHÔNG còn lớp kính nào.
      Vì sao: trên iOS, `backdrop-filter` buộc WebKit ghép một lớp riêng và lớp đó vẽ
      NGAY TRÊN chữ của thanh (tên sân + giờ đang tính bị nhạt, rồi tách thành một mảng
@@ -1068,9 +1081,13 @@ body {
 .sheet-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  /* TRÊN .appbar (z-index: 60) — ngược hẳn với trước đây (50, cố ý chừa thanh trên để nút quay
+     lại còn bấm được). Chủ dự án 18/09: mở Cài đặt là sheet PHỦ KÍN màn hình, không được thấy
+     app bar phía trên nữa. */
+  z-index: 70;
   display: flex;
-  align-items: flex-end;
+  /* Sheet cao đúng 100dvh nên neo ở ĐỈNH viewport (trước đây neo đáy vì sheet chỉ cao 88dvh). */
+  align-items: flex-start;
   justify-content: center;
   background: var(--backdrop);
   animation: backdrop-in var(--dur-base) var(--ease-out);
@@ -1080,10 +1097,17 @@ body {
   position: relative;
   width: 100%;
   max-width: 430px;
-  max-height: 88dvh;
+  /* TOÀN MÀN HÌNH: cao đúng bằng viewport động (dvh) thay vì 88dvh như trước. */
+  height: 100dvh;
+  max-height: 100dvh;
   display: flex;
   flex-direction: column;
+  /* Safe-area CHỈ được là padding TRONG: tay nắm + tiêu đề nằm dưới notch, còn nền đục của
+     sheet vẫn phủ tới mép màn hình nên không hở app bar phía trên. */
+  padding-top: max(env(safe-area-inset-top), var(--space-2));
   background: var(--surface);
+  /* Giữ bo góc trên theo token --radius-lg (token không được để chết) — trên máy thật các góc
+     này nằm trong dải bezel/notch; nền sheet vẫn đục nên app bar không lộ qua. */
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   border-top: 1px solid var(--border);
   overflow: hidden;
@@ -1096,7 +1120,9 @@ body {
 
 .sheet-close {
   position: absolute;
-  top: var(--space-2);
+  /* Nút X định vị theo HỘP PADDING của .sheet-wrap nên padding-top của wrap KHÔNG đẩy nó
+     xuống: phải tự cộng safe-area, nếu không trên iPhone nút X nằm dưới notch. */
+  top: calc(max(env(safe-area-inset-top), var(--space-2)) + var(--space-2));
   right: var(--space-2);
   z-index: 3;
   width: 44px;
