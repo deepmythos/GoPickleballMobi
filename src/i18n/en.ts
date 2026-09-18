@@ -1,9 +1,6 @@
 import type { Dict } from "./vi";
 
 export const en: Dict = {
-  "app.name": "Pickleball Go/No-Go",
-  "app.subtitle": "Should you head to the court now?",
-  "app.loading": "Loading…",
   "common.close": "Close",
   "common.none": "—",
 
@@ -17,15 +14,12 @@ export const en: Dict = {
   "sheet.grabber": "Drag the handle to close",
 
   "header.changeLocation": "Change location",
-  "header.changeTime": "Change date and time",
-  "header.settings": "Settings",
   "header.usingLocation": "Calculating for",
 
   "location.title": "Location",
   "location.nameLabel": "Place name",
   "location.latLabel": "Latitude",
   "location.lonLabel": "Longitude",
-  "location.searchLabel": "Search by name",
   "location.searchPlaceholder": "e.g. Dietzenbach",
   "location.search": "Search",
   "location.searching": "Searching…",
@@ -70,14 +64,9 @@ export const en: Dict = {
 
   "hero.scoreLabel": "Conditions score",
   "hero.outOf": "/ 100",
-  "hero.base": "Base score",
-  "hero.factorSum": "Sum of contributions",
 
   "reason.title": "Why this score?",
   "reason.subtitle": "Sorted by impact, largest first.",
-  "reason.up": "pushes the score up",
-  "reason.down": "pushes the score down",
-  "reason.flat": "neutral",
   "reason.upTemplate": "{note} This factor adds {points} points.",
   "reason.downTemplate": "{note} This factor subtracts {points} points.",
   "reason.flatTemplate": "{note} No meaningful impact.",
@@ -172,7 +161,6 @@ export const en: Dict = {
   "raw.sunset": "Sunset",
   "raw.day": "Yes",
   "raw.night": "No",
-  "raw.airQuality": "Air",
 
   "wmo.clear": "Clear",
   "wmo.mainlyClear": "Mainly clear",
@@ -199,19 +187,16 @@ export const en: Dict = {
   "assumption.courtBearing": "Court defaults to north–south; change it in Settings.",
 
   "status.loading": "Loading data…",
-  "status.refreshing": "Refreshing…",
   "status.errorTitle": "Could not load data",
   "status.errorBody": "Check your connection and try again.",
   "status.retry": "Retry",
   "status.stale": "Stale data",
   "status.staleHint": "Showing a version saved at {time}.",
-  "status.missingTitle": "Missing data",
   "status.missingBody": "Missing: {list}. The score uses the remaining factors only.",
   "status.confidence": "Confidence",
   "confidence.high": "High",
   "confidence.medium": "Medium",
   "confidence.low": "Low",
-  "status.noTargetHour": "The API returned no data for {time}.",
   "status.noData": "No data to show.",
   "status.loadingHost": "Loading data from {host}…",
   "status.errorNetworkHost": "Could not connect to {host} — network error.",
@@ -225,13 +210,8 @@ export const en: Dict = {
   "footer.timezone": "Time zone",
   "footer.forecast": "Forecast",
   "footer.air": "Air",
-  "footer.geocoding": "Geocoding",
   "footer.refresh": "Refresh",
 
-  "error.network": "Network error.",
-  "error.http": "Server error.",
-  "error.parse": "Invalid response data.",
-  "error.unknown": "Unknown error.",
 
   "build.title": "Version",
   "build.builtAt": "Built {time}",
@@ -249,8 +229,6 @@ export const en: Dict = {
   "unit.deg": "°",
   "unit.uv": "UV",
   "unit.eaqi": "EAQI",
-  "unit.hpa": "hPa",
-  "unit.wm2": "W/m²",
   "unit.km": "km",
   "unit.ugm3": "µg/m³",
 };

@@ -1,9 +1,6 @@
 import type { Dict } from "./vi";
 
 export const de: Dict = {
-  "app.name": "Pickleball Go/No-Go",
-  "app.subtitle": "Jetzt auf den Platz?",
-  "app.loading": "Wird geladen…",
   "common.close": "Schließen",
   "common.none": "—",
 
@@ -17,15 +14,12 @@ export const de: Dict = {
   "sheet.grabber": "Zum Schließen am Griff ziehen",
 
   "header.changeLocation": "Ort ändern",
-  "header.changeTime": "Zeit ändern",
-  "header.settings": "Einstellungen",
   "header.usingLocation": "Berechnung für",
 
   "location.title": "Ort",
   "location.nameLabel": "Ortsname",
   "location.latLabel": "Breitengrad",
   "location.lonLabel": "Längengrad",
-  "location.searchLabel": "Nach Name suchen",
   "location.searchPlaceholder": "z. B. Dietzenbach",
   "location.search": "Suchen",
   "location.searching": "Suche läuft…",
@@ -70,14 +64,9 @@ export const de: Dict = {
 
   "hero.scoreLabel": "Bedingungswert",
   "hero.outOf": "/ 100",
-  "hero.base": "Basiswert",
-  "hero.factorSum": "Summe der Beiträge",
 
   "reason.title": "Warum dieser Wert?",
   "reason.subtitle": "Nach Einfluss sortiert, größter zuerst.",
-  "reason.up": "hebt den Wert",
-  "reason.down": "senkt den Wert",
-  "reason.flat": "neutral",
   "reason.upTemplate": "{note} Dieser Faktor addiert {points} Punkte.",
   "reason.downTemplate": "{note} Dieser Faktor zieht {points} Punkte ab.",
   "reason.flatTemplate": "{note} Kein nennenswerter Einfluss.",
@@ -172,7 +161,6 @@ export const de: Dict = {
   "raw.sunset": "Sonnenuntergang",
   "raw.day": "Ja",
   "raw.night": "Nein",
-  "raw.airQuality": "Luft",
 
   "wmo.clear": "Klar",
   "wmo.mainlyClear": "Überwiegend klar",
@@ -199,19 +187,16 @@ export const de: Dict = {
   "assumption.courtBearing": "Platz standardmäßig Nord–Süd; in den Einstellungen änderbar.",
 
   "status.loading": "Daten werden geladen…",
-  "status.refreshing": "Wird aktualisiert…",
   "status.errorTitle": "Daten konnten nicht geladen werden",
   "status.errorBody": "Verbindung prüfen und erneut versuchen.",
   "status.retry": "Erneut versuchen",
   "status.stale": "Veraltete Daten",
   "status.staleHint": "Gespeicherte Version von {time} wird angezeigt.",
-  "status.missingTitle": "Fehlende Daten",
   "status.missingBody": "Fehlt: {list}. Der Wert berücksichtigt nur die übrigen Faktoren.",
   "status.confidence": "Zuverlässigkeit",
   "confidence.high": "Hoch",
   "confidence.medium": "Mittel",
   "confidence.low": "Niedrig",
-  "status.noTargetHour": "Die API liefert keine Daten für {time}.",
   "status.noData": "Keine Daten zum Anzeigen.",
   "status.loadingHost": "Daten werden von {host} geladen…",
   "status.errorNetworkHost": "Keine Verbindung zu {host} — Netzwerkfehler.",
@@ -225,13 +210,8 @@ export const de: Dict = {
   "footer.timezone": "Zeitzone",
   "footer.forecast": "Vorhersage",
   "footer.air": "Luft",
-  "footer.geocoding": "Geocoding",
   "footer.refresh": "Aktualisieren",
 
-  "error.network": "Netzwerkfehler.",
-  "error.http": "Serverfehler.",
-  "error.parse": "Ungültige Antwortdaten.",
-  "error.unknown": "Unbekannter Fehler.",
 
   "build.title": "Version",
   "build.builtAt": "Erstellt am {time}",
@@ -249,8 +229,6 @@ export const de: Dict = {
   "unit.deg": "°",
   "unit.uv": "UV",
   "unit.eaqi": "EAQI",
-  "unit.hpa": "hPa",
-  "unit.wm2": "W/m²",
   "unit.km": "km",
   "unit.ugm3": "µg/m³",
 };
