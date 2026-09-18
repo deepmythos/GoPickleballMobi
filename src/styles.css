@@ -232,32 +232,16 @@ body {
   gap: var(--space-1);
   padding-top: max(env(safe-area-inset-top), var(--space-2));
   padding-bottom: var(--space-2);
-  /* Thanh KHÔNG tự tô nền và KHÔNG tự làm mờ nền nữa: lớp kính là một lớp riêng
-     (.appbar::before) luôn nằm dưới nội dung. Trên iOS, `backdrop-filter` đặt trên
-     chính thanh làm WebKit ghép lớp kính lên trên chữ của thanh — tên sân và giờ
-     đang tính bị nhạt/mờ trong khi toạ độ, độ lệch UTC và điểm số vẫn nét. */
-  background: var(--transparent);
+  /* NỀN ĐỤC (màu surface của chủ đề) — thanh KHÔNG còn lớp kính nào.
+     Vì sao: trên iOS, `backdrop-filter` buộc WebKit ghép một lớp riêng và lớp đó vẽ
+     NGAY TRÊN chữ của thanh (tên sân + giờ đang tính bị nhạt, rồi tách thành một mảng
+     xám riêng). Mọi cách xếp lớp quanh nó — kể cả đẩy kính xuống `.appbar::before`
+     rồi nâng chữ lên `z-index: 1` — đều đã thất bại trên máy thật. Cách duy nhất còn
+     lại là KHÔNG dùng kính: nền đục thì không còn gì có thể nằm trên chữ. Cảm giác
+     "nổi" giữ bằng đường kẻ tóc dưới thanh + bóng đổ nhẹ. */
+  background: var(--surface);
   border-bottom: 1px solid var(--border);
   box-shadow: var(--elev-2);
-}
-
-/* Lớp kính của thanh trên: nền bán trong suốt + làm mờ hậu cảnh, ở mức z-index 0 —
-   LUÔN dưới nội dung (xem `.appbar > *`), nên không thể che mờ hay làm nhạt chữ. */
-.appbar::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background: color-mix(in srgb, var(--bg) 88%, var(--transparent));
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-}
-
-/* Nội dung thanh trên nằm TRÊN lớp kính của thanh. */
-.appbar > * {
-  position: relative;
-  z-index: 1;
 }
 
 .appbar-row {
@@ -318,11 +302,6 @@ body {
 .appbar-loc-name {
   flex: none;
   min-width: 0;
-  /* Định vị + z-index: chữ của thanh luôn nằm trên lớp kính (.appbar::before);
-     opacity 1: tên sân không nhận bất kỳ fade nào, ở mọi trạng thái cuộn. */
-  position: relative;
-  z-index: 1;
-  opacity: 1;
   font-weight: 650;
   font-size: var(--fs-md);
   white-space: nowrap;
@@ -359,13 +338,7 @@ body {
   white-space: nowrap;
 }
 
-/* Giờ đang tính (dòng đầu của cột giờ): đục hoàn toàn và nằm trên lớp kính của thanh. */
-.appbar-time-value {
-  position: relative;
-  z-index: 1;
-  opacity: 1;
-}
-
+/* Giờ đang tính (dòng đầu của cột giờ): không cần định vị/z-index — nền thanh đã đục. */
 .appbar-offset {
   color: var(--faint);
 }
@@ -1124,6 +1097,11 @@ body {
   background: var(--surface-2);
   color: var(--text);
   cursor: pointer;
+  /* iOS: bỏ độ trễ nháy-đúp (double-tap zoom) để cú chạm vào nút này được xử lý ngay.
+     Cú chạm vào điều khiển cũng KHÔNG còn bị cử chỉ kéo của sheet bắt đầu nữa
+     (xem CONTROL_TAGS trong ./ui/gesture.ts) — trước đây `preventDefault()` ở
+     touchmove nuốt mất cú click nên nút X "không phản hồi". */
+  touch-action: manipulation;
 }
 
 .sheet-grab {
