@@ -14,7 +14,7 @@ import type { Evaluation } from "../evaluate";
 import type { Lang } from "../types";
 import { unitText } from "../units";
 import { compassSector, courtDiagram, rotateCourtDiagram } from "./court-diagram";
-import { dragVisual, isSheetOpen, type SheetPanel } from "./sheet";
+import { dragVisual, type SheetPanel } from "./sheet";
 import { factorIcon, gateIcon, makeIcon, ICONS } from "./icons";
 import { impactBar } from "./impact";
 import type { Actions, AppState } from "./state";
@@ -236,7 +236,7 @@ function renderGates(lang: Lang, gates: string[]): HTMLElement {
   );
 }
 
-function renderFactors(state: AppState, animate: boolean): HTMLElement {
+function renderFactors(state: AppState, actions: Actions, animate: boolean): HTMLElement {
   const ev = state.evaluation!;
   const lang = state.lang;
   const sorted = [...ev.factors].sort((a, b) => Math.abs(b.impact) - Math.abs(a.impact));
@@ -336,11 +336,9 @@ function renderFactors(state: AppState, animate: boolean): HTMLElement {
   return h(
     "section",
     { class: "section reasons" },
-    h("div", { class: "section-head" }, h("h2", { text: t(lang, "reason.title") })),
-    h("p", { class: "section-sub", text: t(lang, "reason.subtitle") }),
+    renderInfo(state, actions),
     ev.gates.length > 0 ? renderGates(lang, ev.gates) : null,
     h("ul", { class: "factor-list" }, ...items),
-    h("p", { class: "hint", text: t(lang, "reason.tapHint") }),
   );
 }
 
@@ -410,23 +408,6 @@ function renderRaw(state: AppState, actions: Actions): HTMLElement {
       makeIcon(ICONS.chevronDown, 18, state.rawOpen ? "rotate" : ""),
     ),
     state.rawOpen ? h("dl", { class: "stat-grid" }, ...buildStats()) : null,
-  );
-}
-
-function renderAssumptions(state: AppState): HTMLElement {
-  const lang = state.lang;
-  const items: string[] = [
-    state.lights ? t(lang, "assumption.lights") : t(lang, "assumption.noLights"),
-    t(lang, "assumption.rain24h"),
-    t(lang, "assumption.hourly"),
-    t(lang, "assumption.utc"),
-    t(lang, "assumption.courtBearing"),
-  ];
-  return h(
-    "section",
-    { class: "section assumptions" },
-    h("div", { class: "section-head" }, makeIcon(ICONS.info, 18), h("h2", { text: t(lang, "assumption.title") })),
-    h("ul", { class: "assumption-list" }, ...items.map((text) => h("li", { text }))),
   );
 }
 
@@ -565,27 +546,23 @@ function renderFooter(state: AppState): HTMLElement {
   );
 }
 
-function renderAppBar(state: AppState, actions: Actions): HTMLElement {
+/**
+ * Khối thông tin: tên sân, toạ độ ĐANG DÙNG + độ lệch UTC, mốc giờ đang tính.
+ *
+ * Trước đây là `<header class="appbar">` GHIM ở đỉnh màn hình. Chủ dự án đã yêu cầu bỏ hẳn thanh
+ * đó (trên iPhone nó bị vệt mờ ở đỉnh) và dời nội dung xuống đúng chỗ tiêu đề "Vì sao điểm này?"
+ * + phụ đề của nó — tức là ngay trên danh sách yếu tố. Khối này nằm TRONG LUỒNG trang (không
+ * sticky/fixed) nên không còn gì neo ở đỉnh; nền ĐỤC màu surface nên không lớp nào vẽ lên chữ.
+ * Dòng tóm tắt verdict ("Nên đi · 86/100") đã bị bỏ khỏi khối: verdict đã có khu hero riêng.
+ */
+function renderInfo(state: AppState, actions: Actions): HTMLElement {
   const lang = state.lang;
-  const ev = state.evaluation;
-  const open = isSheetOpen(state.sheet);
-  let summary: string;
-  if (ev) {
-    summary = t(lang, "appbar.summary", {
-      verdict: verdictLabel(lang, ev.verdict),
-      score: formatNumber(lang, ev.score),
-    });
-  } else if (state.status === "error") {
-    summary = t(lang, "status.errorTitle");
-  } else {
-    summary = t(lang, "status.loading");
-  }
-  // Toạ độ ĐANG DÙNG (lấy từ state đã áp dụng, không phải tên địa điểm): thanh trên phải cho biết
+  // Toạ độ ĐANG DÙNG (lấy từ state đã áp dụng, không phải tên địa điểm): khối này phải cho biết
   // app đang thực sự tính cho chỗ nào, kể cả khi tên còn là của lần chọn trước.
   const coords = `${state.location.lat.toFixed(4)}, ${state.location.lon.toFixed(4)}`;
   // Nhãn offset suy từ chính mốc giờ đang tính (targetHour) nên đúng cả khi DST đổi.
-  // targetHour có thể đến thẳng từ tham số URL `at` và không hợp lệ (`?at=14` -> "14:00");
-  // khi đó bỏ nhãn offset thay vì để lỗi làm chết cả render() (màn hình trắng).
+  // targetHour có thể đến thẳng từ tham số URL `at` và không hợp lệ (`?at=14` -> "14:00"); khi đó
+  // bỏ nhãn offset thay vì để lỗi làm chết cả render() (màn hình trắng).
   let offset: string | null = null;
   try {
     offset = formatUtcOffset(getOffsetMinutes(zonedToUtc(state.targetHour)));
@@ -593,49 +570,36 @@ function renderAppBar(state: AppState, actions: Actions): HTMLElement {
     offset = null;
   }
   return h(
-    "header",
-    { class: "appbar" },
+    "section",
+    { class: "infobar" },
     h(
       "div",
-      { class: "appbar-row" },
-      open
-        ? h(
-            "button",
-            {
-              class: "appbar-back",
-              type: "button",
-              "aria-label": t(lang, "appbar.back"),
-              onclick: actions.closeSheet,
-            },
-            makeIcon(ICONS.arrowLeft, 20),
-          )
-        : null,
+      { class: "infobar-row" },
       h(
         "button",
         {
-          class: "appbar-loc",
+          class: "infobar-loc",
           type: "button",
           "aria-label": t(lang, "header.changeLocation"),
           onclick: () => actions.openSheet("location"),
         },
         h(
           "span",
-          { class: "appbar-loc-text" },
-          h("span", { class: "appbar-loc-name", text: state.location.name }),
-          h("span", { class: "appbar-coords", title: t(lang, "header.usingLocation"), text: coords }),
+          { class: "infobar-loc-text" },
+          h("span", { class: "infobar-loc-name", text: state.location.name }),
+          h("span", { class: "infobar-coords", title: t(lang, "header.usingLocation"), text: coords }),
         ),
         makeIcon(ICONS.chevronDown, 14),
       ),
       h(
         "span",
-        { class: "appbar-time" },
-        h("span", { class: "appbar-time-value", text: formatDateTime(lang, state.targetHour) }),
+        { class: "infobar-time" },
+        h("span", { class: "infobar-time-value", text: formatDateTime(lang, state.targetHour) }),
         offset === null
           ? null
-          : h("span", { class: "appbar-offset", title: t(lang, "time.offset"), text: `(${offset})` }),
+          : h("span", { class: "infobar-offset", title: t(lang, "time.offset"), text: `(${offset})` }),
       ),
     ),
-    h("p", { class: "appbar-verdict", text: summary }),
   );
 }
 
@@ -1100,15 +1064,13 @@ export function renderApp(root: HTMLElement, state: AppState, actions: Actions):
     renderUpdateBanner(state, actions),
     renderBanner(state),
     ev ? renderHero(state, animate) : renderStatus(state, actions),
-    ev ? renderFactors(state, animate) : null,
+    ev ? renderFactors(state, actions, animate) : renderInfo(state, actions),
     ev ? renderRaw(state, actions) : null,
-    ev ? renderAssumptions(state) : null,
   );
 
   const app = h(
     "div",
     { class: "app", dataset: { lang: state.lang } },
-    renderAppBar(state, actions),
     main,
     renderFooter(state),
     renderActionBar(state, actions),

@@ -386,10 +386,10 @@ function start(): void {
     openSheet(panel) {
       state.applyErrorKey = null;
       if (panel === "location") {
-        // Nhớ nút đã mở: appbar khi mở từ ngoài, nút trong sheet khi mở từ sheet khác.
+        // Nhớ nút đã mở: nút trong khối thông tin khi mở từ ngoài, nút trong sheet khi mở từ sheet khác.
         openerSelector = isSheetOpen(state.sheet)
           ? '[data-sheet-opener="location"]'
-          : ".appbar-loc";
+          : ".infobar-loc";
         state.draft = { ...state.location };
         state.searchQuery = "";
         state.geoResults = [];

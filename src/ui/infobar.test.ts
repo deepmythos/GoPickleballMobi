@@ -141,8 +141,8 @@ describe("app bar — giờ đang tính kèm nhãn offset UTC", () => {
   it("dùng key có sẵn time.offset làm nhãn cho nhãn offset, ở cả ba ngôn ngữ", () => {
     for (const lang of ["vi", "de", "en"] as const) {
       const root = render(state({ lang }));
-      const offset = byClass(root, "appbar-offset")[0];
-      expect(offset, `thiếu .appbar-offset cho ${lang}`).toBeDefined();
+      const offset = byClass(root, "infobar-offset")[0];
+      expect(offset, `thiếu .infobar-offset cho ${lang}`).toBeDefined();
       expect(offset.getAttribute("title")).toBe(t(lang, "time.offset"));
     }
   });
@@ -151,14 +151,14 @@ describe("app bar — giờ đang tính kèm nhãn offset UTC", () => {
 describe("app bar — toạ độ ĐANG DÙNG", () => {
   it("hiển thị toạ độ đã áp dụng với 4 số lẻ", () => {
     const root = render(state());
-    const coords = byClass(root, "appbar-coords")[0];
-    expect(coords, "thiếu .appbar-coords").toBeDefined();
+    const coords = byClass(root, "infobar-coords")[0];
+    expect(coords, "thiếu .infobar-coords").toBeDefined();
     expect(coords.textContent).toBe("49.9961, 8.7605");
   });
 
   it("đổi toạ độ đã áp dụng thì thanh trên đổi theo, dù tên vẫn là tên cũ", () => {
     const root = render(state({ location: { lat: 0, lon: 8.7605459, name: DEFAULT_NAME } }));
-    const coords = byClass(root, "appbar-coords")[0];
+    const coords = byClass(root, "infobar-coords")[0];
     expect(coords.textContent).toBe("0.0000, 8.7605");
     expect(root.textContent).toContain(DEFAULT_NAME);
     expect(root.textContent).not.toContain("49.9961");
@@ -166,21 +166,56 @@ describe("app bar — toạ độ ĐANG DÙNG", () => {
 });
 
 describe("app bar — targetHour không hợp lệ (hồi quy ?at=14)", () => {
-  it("không ném lỗi và vẫn render thanh trên kèm toạ độ khi targetHour không hợp lệ", () => {
+  it("không ném lỗi và vẫn render khối thông tin kèm toạ độ khi targetHour không hợp lệ", () => {
     let root: FakeNode | undefined;
     expect(() => {
       root = render(state({ targetHour: "14:00" }));
     }).not.toThrow();
-    const coords = byClass(root as FakeNode, "appbar-coords")[0];
-    expect(coords, "thiếu .appbar-coords").toBeDefined();
+    const coords = byClass(root as FakeNode, "infobar-coords")[0];
+    expect(coords, "thiếu .infobar-coords").toBeDefined();
     expect(coords.textContent).toBe("49.9961, 8.7605");
-    expect(byClass(root as FakeNode, "appbar")[0], "thiếu .appbar").toBeDefined();
+    expect(byClass(root as FakeNode, "infobar")[0], "thiếu .infobar").toBeDefined();
   });
 
   it("vẫn giữ nhãn offset UTC cho targetHour hợp lệ (G1)", () => {
     const root = render(state({ targetHour: "2026-09-18T14:00" }));
-    const offset = byClass(root, "appbar-offset")[0];
-    expect(offset, "thiếu .appbar-offset").toBeDefined();
+    const offset = byClass(root, "infobar-offset")[0];
+    expect(offset, "thiếu .infobar-offset").toBeDefined();
     expect(offset.textContent).toBe("(UTC+02:00)");
+  });
+});
+
+// --- card t_3c88db3b (bỏ thanh trên, dời nội dung xuống ngay trên danh sách yếu tố) ---
+
+/** Ba dòng chữ đã bị xoá khỏi màn hình chính, ở cả ba ngôn ngữ (khoá i18n cũng đã bị xoá). */
+const REMOVED_TEXT = [
+  "Vì sao điểm này?",
+  "Xếp theo mức ảnh hưởng, lớn nhất trước.",
+  "Chạm để xem ngưỡng và trọng số.",
+  "Giả định",
+  "Tippen für Schwellenwert und Gewicht.",
+  "Tap to see threshold and weight.",
+];
+
+describe("khối thông tin — đủ trường, không còn dòng tóm tắt verdict", () => {
+  it("giữ đúng 4 trường: tên sân, toạ độ, mốc giờ, độ lệch UTC", () => {
+    const root = render(state());
+    for (const cls of ["infobar-loc-name", "infobar-coords", "infobar-time-value", "infobar-offset"]) {
+      expect(byClass(root, cls).length, `thiếu .${cls}`).toBe(1);
+    }
+  });
+
+  it("KHÔNG còn dòng tóm tắt verdict trong khối (verdict chỉ còn ở khu hero)", () => {
+    const root = render(state());
+    expect(byClass(root, "infobar-verdict").length).toBe(0);
+    expect(byClass(root, "infobar")[0].textContent).not.toMatch(/\d+\/100/);
+  });
+
+  it("không còn tiêu đề/phụ đề mục lý do, dòng gợi ý chạm, hay khối Giả định", () => {
+    const root = render(state());
+    for (const line of REMOVED_TEXT) {
+      expect(root.textContent, `vẫn còn: ${line}`).not.toContain(line);
+    }
+    expect(byClass(root, "assumption-list").length).toBe(0);
   });
 });

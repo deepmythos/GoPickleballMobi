@@ -86,17 +86,9 @@
   /* Chỉ số so le do render.ts ghi qua inline style; khai báo ở đây để không thiếu token. */
   --reveal-index: 0;
 
-  /* Khoảng CHỪA THÊM phía trên app bar = 3,5 dòng của dòng chữ đầu (tên sân: --fs-md,
-     line-height kế thừa --lh-normal) ⇒ 3.5 × 1.5 × 15px = 78.75px. Chủ dự án chốt lại
-     18/09: cộng thêm 2 dòng nữa so với mốc 1,5 dòng trước đó (1,5 + 2 = 3,5 dòng).
-     Khai báo ở đây (không phải trong .appbar) theo DESIGN.md §2: mọi giá trị thị giác đi
-     qua token :root.
-     Vì sao cần: trên iPhone dòng chữ ĐẦU của thanh vẫn bị nhạt dù đã bỏ hẳn lớp kính. */
-  --appbar-lead: calc(3.5 * var(--lh-normal) * var(--fs-md));
-
   /* KHÔNG thêm token cho lề trên của sheet: src/design-tokens.test.mjs §5 chỉ chấp nhận
      padding/margin/gap ghi bằng var(--space-*) nên biểu thức được viết thẳng ở .sheet-wrap
-     và .sheet-close (đúng như .appbar đang làm). */
+     và .sheet-close (đúng như .main đang làm). */
 }
 
 @media (prefers-color-scheme: dark) {
@@ -234,71 +226,33 @@ body {
   padding: 0 var(--gutter);
 }
 
-.appbar {
-  position: sticky;
-  top: 0;
-  /* DƯỚI .sheet-backdrop (z-index: 70 từ 18/09): mở sheet là sheet phủ kín màn hình, app bar
-     KHÔNG được hở ra phía trên. Đổi lại nút .appbar-back (chỉ có khi sheet đang mở) không
-     bấm được nữa — đường đóng vẫn còn nguyên: nút X, chạm nền, kéo xuống, cử chỉ back của HĐH. */
-  z-index: 60;
+/* ------------------------------- khối thông tin (trước đây là thanh trên, đã bỏ) */
+
+/* NỀN ĐỤC (màu surface của chủ đề) — không kính, không lớp nào có thể vẽ lên chữ.
+   Vì sao: trên iOS, `backdrop-filter` buộc WebKit ghép một lớp riêng vẽ NGAY TRÊN chữ của thanh
+   (tên sân + giờ bị nhạt rồi tách thành mảng xám). Cách duy nhất còn lại là KHÔNG dùng kính.
+   Khối này nằm trong luồng trang (không sticky) nên cũng không còn gì che phần trên màn hình. */
+.infobar {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  /* CHỪA DẢI TRÊN CÙNG (workaround theo yêu cầu trực tiếp của chủ dự án, 18/09):
-     trên iPhone, ~1,5 dòng chữ ĐẦU của thanh vẫn bị nhạt dù đã bỏ hẳn lớp kính — tức lớp
-     kính không phải nguyên nhân duy nhất. Nên chừa thêm 1,5 dòng phía trên để chữ nằm thấp
-     hơn, ra khỏi dải trên cùng của màn hình. Token --appbar-lead = 33.75px, CỘNG LÊN TRÊN
-     phần chừa safe-area sẵn có — không thay thế nó, nên không có chữ nào lọt dưới notch.
-     Chừa trên nhiều hơn dưới là CỐ Ý: dải trên chính là vùng thanh trạng thái iOS vẽ đè,
-     còn dưới thanh chỉ cần khoảng thở thường. */
-  padding-top: calc(max(env(safe-area-inset-top), var(--space-2)) + var(--appbar-lead));
-  /* TRÁI = PHẢI = DƯỚI = --space-2 (8px), đúng yêu cầu chủ dự án 18/09: "lề trái/phải của
-     thanh phải bằng lề dưới". Trước đây trái/phải = 0 vì thanh nằm trong .app (đã có --gutter);
-     lề ngang 0 là thứ làm chữ dính sát mép nền đục của thanh. */
-  padding-right: var(--space-2);
-  padding-bottom: var(--space-2);
-  padding-left: var(--space-2);
-  /* NỀN ĐỤC (màu surface của chủ đề) — thanh KHÔNG còn lớp kính nào.
-     Vì sao: trên iOS, `backdrop-filter` buộc WebKit ghép một lớp riêng và lớp đó vẽ
-     NGAY TRÊN chữ của thanh (tên sân + giờ đang tính bị nhạt, rồi tách thành một mảng
-     xám riêng). Mọi cách xếp lớp quanh nó — kể cả đẩy kính xuống `.appbar::before`
-     rồi nâng chữ lên `z-index: 1` — đều đã thất bại trên máy thật. Cách duy nhất còn
-     lại là KHÔNG dùng kính: nền đục thì không còn gì có thể nằm trên chữ. Cảm giác
-     "nổi" giữ bằng đường kẻ tóc dưới thanh + bóng đổ nhẹ. */
+  padding: var(--space-2) 0;
   background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  box-shadow: var(--elev-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--elev-1);
 }
 
-.appbar-row {
+.infobar-row {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   min-height: 44px;
 }
 
-.appbar-back {
-  flex: none;
-  width: 44px;
-  height: 44px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: var(--transparent);
-  color: inherit;
-  cursor: pointer;
-}
-
-.appbar-back:active {
-  background: var(--surface-2);
-}
-
-.appbar-loc {
+.infobar-loc {
   flex: 1;
-  min-width: 0;
+  min-width: 44px;
   min-height: 44px;
   display: flex;
   align-items: center;
@@ -313,11 +267,11 @@ body {
   cursor: pointer;
 }
 
-.appbar-loc:active {
+.infobar-loc:active {
   background: var(--surface-2);
 }
 
-.appbar-loc-text {
+.infobar-loc-text {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -325,7 +279,7 @@ body {
   gap: var(--space-1);
 }
 
-.appbar-loc-name {
+.infobar-loc-name {
   flex: none;
   min-width: 0;
   font-weight: 650;
@@ -336,7 +290,7 @@ body {
 }
 
 /* Toạ độ ĐANG DÙNG — số đo nên dùng font mono (DESIGN.md 3). */
-.appbar-coords {
+.infobar-coords {
   min-width: 0;
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
@@ -347,11 +301,11 @@ body {
   text-overflow: ellipsis;
 }
 
-.appbar-loc .icon {
+.infobar-loc .icon {
   color: var(--faint);
 }
 
-.appbar-time {
+.infobar-time {
   flex: none;
   display: flex;
   flex-direction: column;
@@ -364,26 +318,16 @@ body {
   white-space: nowrap;
 }
 
-/* Giờ đang tính (dòng đầu của cột giờ): không cần định vị/z-index — nền thanh đã đục. */
-.appbar-offset {
+.infobar-offset {
   color: var(--faint);
-}
-
-.appbar-verdict {
-  margin: 0;
-  font-size: var(--fs-sm);
-  font-weight: 600;
-  color: var(--muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .main {
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
-  padding-top: var(--space-3);
+  /* Không còn thanh nào ở đỉnh: chừa đúng vùng tai thỏ/thanh trạng thái (env). */
+  padding-top: max(env(safe-area-inset-top), var(--space-3));
   padding-bottom: var(--space-6);
   flex: 1;
 }
@@ -595,12 +539,6 @@ body {
   margin: calc(-1 * var(--space-1)) 0 0;
   font-size: var(--fs-sm);
   color: var(--muted);
-}
-
-.hint {
-  margin: var(--space-1) 0 0;
-  font-size: var(--fs-xs);
-  color: var(--faint);
 }
 
 /* ----------------------------------------------------------------- gates */
@@ -880,35 +818,6 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* ------------------------------------------------------------ assumptions */
-
-.assumption-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.assumption-list li {
-  position: relative;
-  padding-left: var(--space-4);
-  font-size: var(--fs-sm);
-  line-height: var(--lh-normal);
-  color: var(--muted);
-}
-
-.assumption-list li::before {
-  content: "";
-  position: absolute;
-  left: 2px;
-  top: 8px;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--border-strong);
-}
 
 /* --------------------------------------------------------------- skeleton */
 
@@ -1081,9 +990,8 @@ body {
 .sheet-backdrop {
   position: fixed;
   inset: 0;
-  /* TRÊN .appbar (z-index: 60) — ngược hẳn với trước đây (50, cố ý chừa thanh trên để nút quay
-     lại còn bấm được). Chủ dự án 18/09: mở Cài đặt là sheet PHỦ KÍN màn hình, không được thấy
-     app bar phía trên nữa. */
+  /* Đỉnh xếp lớp cao nhất của trang — thanh trên đã bị bỏ hẳn (18/09), không còn gì để hở ra.
+     Chủ dự án 18/09: mở Cài đặt là sheet PHỦ KÍN màn hình. */
   z-index: 70;
   display: flex;
   /* Sheet cao đúng 100dvh nên neo ở ĐỈNH viewport (trước đây neo đáy vì sheet chỉ cao 88dvh). */

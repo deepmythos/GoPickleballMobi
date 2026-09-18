@@ -4,9 +4,7 @@ export const en: Dict = {
   "common.close": "Close",
   "common.none": "—",
 
-  "appbar.back": "Back",
   "appbar.adjust": "Adjust",
-  "appbar.summary": "{verdict} · {score}/100",
 
   "sheet.title": "Adjust",
   "sheet.open": "Open adjustment panel",
@@ -76,13 +74,10 @@ export const en: Dict = {
   "hero.scoreLabel": "Conditions score",
   "hero.outOf": "/ 100",
 
-  "reason.title": "Why this score?",
-  "reason.subtitle": "Sorted by impact, largest first.",
   "reason.upTemplate": "{note} This factor adds {points} points.",
   "reason.downTemplate": "{note} This factor subtracts {points} points.",
   "reason.flatTemplate": "{note} No meaningful impact.",
   "reason.neutral": "{label} is average.",
-  "reason.tapHint": "Tap to see threshold and weight.",
   "reason.gatesTitle": "Not playable conditions",
   "reason.gate.night": "Dark with no lights → treated as not playable.",
   "reason.gate.rain": "Heavy rain, slippery court → treated as not playable.",
@@ -189,13 +184,6 @@ export const en: Dict = {
   "wmo.thunderstorm": "Thunderstorm",
   "wmo.thunderstormHail": "Thunderstorm with hail",
 
-  "assumption.title": "Assumptions",
-  "assumption.noLights": "No lighting: darkness is treated as not playable.",
-  "assumption.lights": "Enabled: lit court, playable after dark.",
-  "assumption.rain24h": "The previous 24 h of rain indicates whether the court is still wet.",
-  "assumption.hourly": "Hourly data; values apply to the start of the selected hour.",
-  "assumption.utc": "Times are in Europe/Berlin, with automatic summer/winter time handling.",
-  "assumption.courtBearing": "Court defaults to north–south; change it in Settings.",
 
   "status.loading": "Loading data…",
   "status.errorTitle": "Could not load data",
