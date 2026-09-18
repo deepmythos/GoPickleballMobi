@@ -161,3 +161,23 @@ describe("app bar — toạ độ ĐANG DÙNG", () => {
     expect(root.textContent).not.toContain("49.9961");
   });
 });
+
+describe("app bar — targetHour không hợp lệ (hồi quy ?at=14)", () => {
+  it("không ném lỗi và vẫn render thanh trên kèm toạ độ khi targetHour không hợp lệ", () => {
+    let root: FakeNode | undefined;
+    expect(() => {
+      root = render(state({ targetHour: "14:00" }));
+    }).not.toThrow();
+    const coords = byClass(root as FakeNode, "appbar-coords")[0];
+    expect(coords, "thiếu .appbar-coords").toBeDefined();
+    expect(coords.textContent).toBe("49.9961, 8.7605");
+    expect(byClass(root as FakeNode, "appbar")[0], "thiếu .appbar").toBeDefined();
+  });
+
+  it("vẫn giữ nhãn offset UTC cho targetHour hợp lệ (G1)", () => {
+    const root = render(state({ targetHour: "2026-09-18T14:00" }));
+    const offset = byClass(root, "appbar-offset")[0];
+    expect(offset, "thiếu .appbar-offset").toBeDefined();
+    expect(offset.textContent).toBe("(UTC+02:00)");
+  });
+});

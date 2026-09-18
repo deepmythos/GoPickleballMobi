@@ -525,7 +525,14 @@ function renderAppBar(state: AppState, actions: Actions): HTMLElement {
   // app đang thực sự tính cho chỗ nào, kể cả khi tên còn là của lần chọn trước.
   const coords = `${state.location.lat.toFixed(4)}, ${state.location.lon.toFixed(4)}`;
   // Nhãn offset suy từ chính mốc giờ đang tính (targetHour) nên đúng cả khi DST đổi.
-  const offset = formatUtcOffset(getOffsetMinutes(zonedToUtc(state.targetHour)));
+  // targetHour có thể đến thẳng từ tham số URL `at` và không hợp lệ (`?at=14` -> "14:00");
+  // khi đó bỏ nhãn offset thay vì để lỗi làm chết cả render() (màn hình trắng).
+  let offset: string | null = null;
+  try {
+    offset = formatUtcOffset(getOffsetMinutes(zonedToUtc(state.targetHour)));
+  } catch {
+    offset = null;
+  }
   return h(
     "header",
     { class: "appbar" },
@@ -564,7 +571,9 @@ function renderAppBar(state: AppState, actions: Actions): HTMLElement {
         "span",
         { class: "appbar-time" },
         h("span", { class: "appbar-time-value", text: formatDateTime(lang, state.targetHour) }),
-        h("span", { class: "appbar-offset", title: t(lang, "time.offset"), text: `(${offset})` }),
+        offset === null
+          ? null
+          : h("span", { class: "appbar-offset", title: t(lang, "time.offset"), text: `(${offset})` }),
       ),
     ),
     h("p", { class: "appbar-verdict", text: summary }),
