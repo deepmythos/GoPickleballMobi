@@ -89,6 +89,15 @@ function byClass(root: FakeNode, cls: string): FakeNode[] {
   return findAll(root, (node) => (node.attrs.class ?? node.className).split(/\s+/).includes(cls));
 }
 
+/** Hình sân ĐẦY ĐỦ trong sheet Cài đặt (bỏ qua hình thu gọn ở hàng "chói nắng"). */
+function sheetDiagram(root: FakeNode): FakeNode {
+  const sheet = byClass(root, "sheet")[0];
+  if (!sheet) throw new Error("thiếu .sheet");
+  const svg = byClass(sheet, "court-diagram")[0];
+  if (!svg) throw new Error("thiếu svg.court-diagram trong sheet");
+  return svg;
+}
+
 function angleDelta(a: number, b: number): number {
   const d = Math.abs(a - b) % 360;
   return d > 180 ? 360 - d : d;
@@ -206,7 +215,7 @@ function sunAt(hour: string) {
 describe("hình sân — khoảng mặt trời (hai mặt trời + cung chuyển động)", () => {
   it("(i–iv) vẽ đúng hai đầu, cung tăng dần, hai nhãn giờ và aria-label mô tả cả khoảng", () => {
     const root = render(makeState());
-    const svg = byClass(root, "court-diagram")[0];
+    const svg = sheetDiagram(root);
     expect(svg, "thiếu svg.court-diagram").toBeDefined();
 
     // (i) Phương vị hai đầu khớp solarPosition() tính ĐỘC LẬP trong test (±2°).
@@ -254,7 +263,7 @@ describe("hình sân — khoảng mặt trời (hai mặt trời + cung chuyển
 
   it("cập nhật TẠI CHỖ khi kéo tay nắm `to`: cùng <svg>, đầu cuối đổi theo", () => {
     const root = render(makeState());
-    const svg = byClass(root, "court-diagram")[0];
+    const svg = sheetDiagram(root);
     const toHandle = findAll(
       root,
       (node) =>
@@ -271,7 +280,7 @@ describe("hình sân — khoảng mặt trời (hai mặt trời + cung chuyển
     // Kéo `to` từ 18:00 lên 19:00.
     toHandle.listeners.input({ target: { value: "19" } });
 
-    const afterSvg = byClass(root, "court-diagram")[0];
+    const afterSvg = sheetDiagram(root);
     const afterArc = byClass(root, "cd-sun-arc")[0];
     const afterEnd = Number(afterSvg.attrs["data-sun-azimuth-end"]);
     const afterArcEnd = Number(afterArc.attrs["data-sun-arc-end"]);

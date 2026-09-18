@@ -2,9 +2,7 @@ export const vi = {
   "common.close": "Đóng",
   "common.none": "—",
 
-  "appbar.back": "Quay lại",
   "appbar.adjust": "Điều chỉnh",
-  "appbar.summary": "{verdict} · {score}/100",
 
   "sheet.title": "Điều chỉnh",
   "sheet.open": "Mở bảng điều chỉnh",
@@ -79,13 +77,10 @@ export const vi = {
   "hero.scoreLabel": "Điểm điều kiện",
   "hero.outOf": "/ 100",
 
-  "reason.title": "Vì sao điểm này?",
-  "reason.subtitle": "Xếp theo mức ảnh hưởng, lớn nhất trước.",
   "reason.upTemplate": "{note} Yếu tố này cộng {points} điểm.",
   "reason.downTemplate": "{note} Yếu tố này trừ {points} điểm.",
   "reason.flatTemplate": "{note} Không ảnh hưởng đáng kể.",
   "reason.neutral": "{label} ở mức trung bình.",
-  "reason.tapHint": "Chạm để xem ngưỡng và trọng số.",
   "reason.gatesTitle": "Điều kiện không thể chơi",
   "reason.gate.night": "Trời tối và sân không có đèn → coi như không chơi được.",
   "reason.gate.rain": "Mưa to, sân trơn trượt → coi như không chơi được.",
@@ -193,13 +188,6 @@ export const vi = {
   "wmo.thunderstorm": "Dông",
   "wmo.thunderstormHail": "Dông kèm mưa đá",
 
-  "assumption.title": "Giả định",
-  "assumption.noLights": "Sân không có đèn: trời tối được coi là không chơi được.",
-  "assumption.lights": "Đã bật: sân có đèn, chơi được khi trời tối.",
-  "assumption.rain24h": "Lượng mưa 24 giờ trước dùng để suy ra sân còn ướt.",
-  "assumption.hourly": "Dữ liệu theo giờ; giá trị áp dụng cho đầu giờ đã chọn.",
-  "assumption.utc": "Giờ theo Europe/Berlin, tự động xử lý giờ mùa hè/mùa đông.",
-  "assumption.courtBearing": "Sân mặc định hướng Bắc–Nam; đổi được ở Cài đặt.",
 
   "status.loading": "Đang tải dữ liệu…",
   "status.errorTitle": "Không tải được dữ liệu",
