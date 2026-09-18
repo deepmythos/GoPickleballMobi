@@ -2,6 +2,7 @@ import type { AirQualityData, ForecastData } from "./api";
 import { scoreConditions } from "./scoring";
 import { solarPosition } from "./sun";
 import { APP_TIMEZONE, getOffsetMinutes, zonedToUtc } from "./time";
+import { aggregateWindow, midpointHourOf, windowHours, type HourScore, type WindowRange } from "./window";
 import type {
   BaseUrls,
   Confidence,
@@ -17,7 +18,10 @@ export interface EvaluateParams {
   location: GeoLocation;
   forecast: ForecastData;
   air: AirQualityData | null;
+  /** Giờ BẮT ĐẦU của cửa sổ đánh giá (trước đây là giờ duy nhất được đánh giá). */
   targetHour: string;
+  /** Giờ KẾT THÚC; bỏ trống = cửa sổ suy biến một giờ (hành vi cũ nguyên vẹn). */
+  toHour?: string;
   courtBearing: number;
   lights: boolean;
   baseUrls: BaseUrls;
@@ -26,13 +30,19 @@ export interface EvaluateParams {
 }
 
 export interface Evaluation {
+  /** Giờ bắt đầu cửa sổ. */
   targetHour: string;
   utcOffsetMinutes: number;
+  /** Giờ GIỮA cửa sổ — mọi chi tiết bên dưới (point/factors/gates/…) thuộc giờ này (D4). */
   localTime: string;
   point: HourlyPoint;
   sun: SunPosition;
+  /** Điểm TRUNG BÌNH CỘNG của cả cửa sổ (range.score). */
   score: number;
+  /** classify(range.score) — dải của cả cửa sổ. */
   verdict: VerdictLabel;
+  /** Chi tiết cửa sổ: mean, từng giờ, giờ thiếu, giờ giữa. */
+  range: WindowRange;
   factors: FactorResult[];
   gates: string[];
   missing: string[];
@@ -105,16 +115,34 @@ function deriveConfidence(missing: string[], stale: boolean): Confidence {
   return "high";
 }
 
-export function evaluate(params: EvaluateParams): Evaluation {
-  const { forecast, air, targetHour } = params;
-  const index = findHourIndex(
-    forecast.hourly.map((p) => p.time),
-    targetHour,
-  );  if (index < 0) throw new NoTargetHourError(targetHour);
+/** Toàn bộ chi tiết của MỘT giờ trong cửa sổ. `hourScore` là phần đưa vào mean. */
+interface HourDetail {
+  hourScore: HourScore;
+  point: HourlyPoint;
+  sun: SunPosition;
+  utcOffsetMinutes: number;
+  factors: FactorResult[];
+  gates: string[];
+  missing: string[];
+  confidence: Confidence;
+  rain3h: number | null;
+  rain3hComplete: boolean;
+  aqi: number | null;
+  pm25: number | null;
+  pm10: number | null;
+  sunrise: string | null;
+  sunset: string | null;
+}
 
+/**
+ * Tính trọn một giờ: cùng ScoreInput, cùng luật rainWindowSum, cùng gate như bản
+ * một-giờ trước đây. Đây là khối được gọi cho MỌI giờ của cửa sổ ở bước 1.
+ */
+function computeHour(params: EvaluateParams, hour: string, index: number): HourDetail {
+  const { forecast, air } = params;
   const point = forecast.hourly[index];
 
-  const targetDate = zonedToUtc(targetHour, APP_TIMEZONE);
+  const targetDate = zonedToUtc(hour, APP_TIMEZONE);
   const sun = solarPosition(targetDate, params.location.lat, params.location.lon);
   const utcOffsetMinutes = getOffsetMinutes(targetDate, APP_TIMEZONE);
 
@@ -124,7 +152,7 @@ export function evaluate(params: EvaluateParams): Evaluation {
   let pm25: number | null = null;
   let pm10: number | null = null;
   if (air) {
-    const ai = findHourIndex(air.hourly.time, targetHour);
+    const ai = findHourIndex(air.hourly.time, hour);
     if (ai >= 0) {
       aqi = air.hourly.european_aqi[ai] ?? null;
       pm25 = air.hourly.pm2_5[ai] ?? null;
@@ -132,7 +160,7 @@ export function evaluate(params: EvaluateParams): Evaluation {
     }
   }
 
-  const dailyIndex = forecast.daily.time.indexOf(targetHour.slice(0, 10));
+  const dailyIndex = forecast.daily.time.indexOf(hour.slice(0, 10));
   const sunrise = dailyIndex >= 0 ? (forecast.daily.sunrise[dailyIndex] ?? null) : null;
   const sunset = dailyIndex >= 0 ? (forecast.daily.sunset[dailyIndex] ?? null) : null;
 
@@ -162,13 +190,10 @@ export function evaluate(params: EvaluateParams): Evaluation {
   const uniqueMissing = [...new Set(missing)];
 
   return {
-    targetHour,
-    localTime: targetHour,
-    utcOffsetMinutes,
+    hourScore: { hour, score: result.score, verdict: result.verdict },
     point,
     sun,
-    score: result.score,
-    verdict: result.verdict,
+    utcOffsetMinutes,
     factors: result.factors,
     gates: result.gates,
     missing: uniqueMissing,
@@ -180,6 +205,58 @@ export function evaluate(params: EvaluateParams): Evaluation {
     pm10,
     sunrise,
     sunset,
+  };
+}
+
+export function evaluate(params: EvaluateParams): Evaluation {
+  const from = params.targetHour;
+  // Không có `toHour` => cửa sổ suy biến một giờ: y hệt hành vi một-giờ cũ.
+  const to = params.toHour ?? params.targetHour;
+
+  // Bước 1: chấm điểm TỪNG giờ có dữ liệu trong cửa sổ.
+  const times = params.forecast.hourly.map((p) => p.time);
+  const perHour: HourDetail[] = [];
+  for (const hour of windowHours(from, to)) {
+    const index = findHourIndex(times, hour);
+    if (index < 0) continue;
+    perHour.push(computeHour(params, hour, index));
+  }
+
+  // Chỉ khi CẢ cửa sổ không có dữ liệu mới là lỗi; thiếu vài giờ chỉ bị loại khỏi mean.
+  if (perHour.length === 0) throw new NoTargetHourError(from);
+
+  // Bước 2: gộp cửa sổ bằng trung bình cộng (nơi duy nhất định nghĩa luật: ./window).
+  const range = aggregateWindow(from, to, perHour.map((detail) => detail.hourScore));
+
+  // Chi tiết point/factors/gates/… thuộc giờ GIỮA cửa sổ. Nếu giữa khoảng thiếu dữ liệu
+  // (dự báo không phủ hết cửa sổ) thì lùi về giờ có dữ liệu đầu tiên, để không ném lỗi.
+  const midpoint = midpointHourOf(from, to);
+  const detail =
+    perHour.find((entry) => entry.hourScore.hour.slice(0, 16) === midpoint.slice(0, 16)) ?? perHour[0];
+
+  const score = range.score ?? detail.hourScore.score;
+  const verdict = range.verdict ?? detail.hourScore.verdict;
+
+  return {
+    targetHour: from,
+    localTime: detail.hourScore.hour,
+    utcOffsetMinutes: detail.utcOffsetMinutes,
+    point: detail.point,
+    sun: detail.sun,
+    score,
+    verdict,
+    range,
+    factors: detail.factors,
+    gates: detail.gates,
+    missing: detail.missing,
+    confidence: detail.confidence,
+    rain3h: detail.rain3h,
+    rain3hComplete: detail.rain3hComplete,
+    aqi: detail.aqi,
+    pm25: detail.pm25,
+    pm10: detail.pm10,
+    sunrise: detail.sunrise,
+    sunset: detail.sunset,
     dataSource: { forecastBase: params.baseUrls.forecastBase, fetchedAt: params.fetchedAt },
   };
 }

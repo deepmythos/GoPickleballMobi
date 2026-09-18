@@ -35,7 +35,12 @@ export const en: Dict = {
 
   "time.title": "Date and time",
   "time.label": "Choose date and time",
-  "time.nextHour": "Next hour",
+  "time.rangeLabel": "Time range",
+  "time.from": "From",
+  "time.to": "To",
+  "time.span": "{from} – {to} · {hours} h",
+  "time.rangeScore": "Score for the whole range: {score} · {verdict}",
+  "time.midpointNote": "Detailed values at the middle of the range: {hour}",
   "time.local": "Local time",
   "time.offset": "UTC offset",
   "time.apply": "Apply",

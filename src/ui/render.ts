@@ -9,10 +9,12 @@ import {
 } from "../i18n";
 import { FACTOR_META } from "../scoring";
 import { APP_TIMEZONE, formatLocalISO, formatUtcOffset, getOffsetMinutes, zonedToUtc } from "../time";
+import { midpointHourOf } from "../window";
 import { BUILD_ID, BUILD_TIME } from "../build";
 import type { Lang } from "../types";
 import { unitText } from "../units";
 import { compassSector, courtDiagram, rotateCourtDiagram } from "./court-diagram";
+import { renderHourRange } from "./hour-range";
 import { dragVisual, isSheetOpen, type SheetPanel } from "./sheet";
 import { factorIcon, gateIcon, makeIcon, ICONS } from "./icons";
 import { impactBar } from "./impact";
@@ -884,23 +886,17 @@ function renderInputsSheet(state: AppState, actions: Actions): HTMLElement[] {
       "div",
       { class: "setting-block" },
       h("span", { class: "field-label", text: t(lang, "time.title") }),
-      field(
-        t(lang, "time.label"),
-        h("input", {
-          type: "datetime-local",
-          class: "input",
-          step: "3600",
-          value: state.atInput,
-          oninput: (e: Event) => actions.setAtInput((e.target as HTMLInputElement).value),
-          onfocus: focusScroll,
+      renderHourRange(state, actions),
+      h("p", {
+        class: "sheet-note",
+        text: t(lang, "time.midpointNote", {
+          hour: formatClock(
+            lang,
+            state.evaluation?.range.midpointHour ??
+              midpointHourOf(state.targetHour, state.toHour ?? state.targetHour),
+          ),
         }),
-      ),
-      h(
-        "button",
-        { class: "btn ghost full", type: "button", onclick: actions.useNextHour },
-        makeIcon(ICONS.calendar, 16),
-        h("span", { text: t(lang, "time.nextHour") }),
-      ),
+      }),
       h("p", { class: "sheet-note", text: `${t(lang, "time.local")}: ${APP_TIMEZONE}` }),
       state.applyErrorKey === "time.invalidTime"
         ? h("p", { class: "sheet-note error-text apply-error", text: t(lang, "time.invalidTime") })

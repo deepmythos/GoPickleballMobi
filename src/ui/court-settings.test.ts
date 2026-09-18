@@ -133,6 +133,17 @@ function makeEvaluation(sun: { azimuth: number; elevation: number }, isDay = 1):
     sun,
     score: 80,
     verdict: "Nên đi",
+    range: {
+      from: TARGET_HOUR,
+      to: TARGET_HOUR,
+      spanHours: 0,
+      midpointHour: TARGET_HOUR,
+      hours: [{ hour: TARGET_HOUR, score: 80, verdict: "Nên đi" }],
+      score: 80,
+      verdict: "Nên đi",
+      countedHours: 1,
+      missingHours: [],
+    },
     factors: [],
     gates: [],
     missing: [],
@@ -289,8 +300,14 @@ describe("sheet Cài đặt — hình sân đúng tỉ lệ + hướng nắng th
     const root = render(
       state({ lang: "vi", sheet: openInputs(), evaluation: makeEvaluation(sunAt(TARGET_HOUR, DIETZENBACH)) }),
     );
-    const range = findAll(root, (n) => n.attrs.type === "range")[0];
-    expect(range, "thiếu input[type=range]").toBeDefined();
+    // Thanh trượt hướng sân là range KHÔNG mang class hour-range-handle (bộ chọn khoảng giờ).
+    const range = findAll(
+      root,
+      (n) =>
+        n.attrs.type === "range" &&
+        !(n.attrs.class ?? n.className).split(/\s+/).includes("hour-range-handle"),
+    )[0];
+    expect(range, "thiếu input[type=range] cho hướng sân").toBeDefined();
     const handler = range.listeners.input;
     expect(handler, "thiếu listener 'input'").toBeDefined();
     handler({ target: { value: "90" } });

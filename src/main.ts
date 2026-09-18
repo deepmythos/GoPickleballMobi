@@ -20,14 +20,15 @@ import { evaluate, NoTargetHourError, RAIN_WINDOW_HOURS, type Evaluation } from 
 import { BUILD_ID, BUILD_TIME } from "./build";
 import { applyUpdate, checkForUpdate, initPwa } from "./pwa";
 import { isLang, t } from "./i18n";
-import { APP_TIMEZONE, ceilToHour, formatLocalISO } from "./time";
+import { APP_TIMEZONE, formatLocalISO } from "./time";
 import type { BaseUrls, GeoLocation, Lang } from "./types";
+import { windowFromParams } from "./window";
 import { hostOf, renderApp } from "./ui/render";
 import { createSwipeLatch, isExcludedTouchTarget, isHorizontalDominant, type SwipeSample } from "./ui/gesture";
 import { touchTargetTraits } from "./ui/hit";
 import { dragVisual, initialSheetState, isSheetOpen, sheetReducer, type SheetAction } from "./ui/sheet";
 import { resolveTheme, themeAttribute, THEME_STORAGE_KEY } from "./ui/theme";
-import { validateAtInput, validateDraftLocation } from "./ui/validate";
+import { validateDraftLocation, validateRangeInput } from "./ui/validate";
 import type { Actions, AppState, ThemeChoice } from "./ui/state";
 
 const DEFAULT_LOCATION: GeoLocation = {
@@ -117,8 +118,10 @@ function initialiseState(params: URLSearchParams): AppState {
   const nowParam = params.get("now");
   const nowLocal = nowParam ? nowParam.slice(0, 16) : formatLocalISO(new Date(), APP_TIMEZONE);
 
-  const atParam = params.get("at");
-  const targetHour = atParam ? `${atParam.slice(0, 13)}:00` : ceilToHour(nowLocal);
+  // Cửa sổ đánh giá đọc chung một hàm thuần với test: from/to, tương thích `at`, hoặc mặc định 2 giờ.
+  const initialWindow = windowFromParams(params, nowLocal);
+  const targetHour = initialWindow.from;
+  const toHour = initialWindow.to;
 
   const theme = readTheme();
   applyTheme(theme);
@@ -127,6 +130,7 @@ function initialiseState(params: URLSearchParams): AppState {
     lang,
     location,
     targetHour,
+    toHour,
     nowLocal,
     courtBearing,
     lights,
@@ -147,6 +151,7 @@ function initialiseState(params: URLSearchParams): AppState {
     searchQuery: "",
     draft: { ...location },
     atInput: targetHour,
+    toInput: toHour,
     applyErrorKey: null,
     theme,
     offline: typeof navigator !== "undefined" && navigator.onLine === false,
@@ -184,7 +189,8 @@ function start(): void {
     next.set("lat", String(state.location.lat));
     next.set("lon", String(state.location.lon));
     next.set("name", state.location.name);
-    next.set("at", state.targetHour);
+    next.set("from", state.targetHour);
+    next.set("to", state.toHour ?? state.targetHour);
     next.set("lang", state.lang);
     next.set("courtBearing", String(state.courtBearing));
     if (next.get("now") === null && params.get("now")) next.set("now", params.get("now") as string);
@@ -278,6 +284,7 @@ function start(): void {
         forecast: state.forecast,
         air: state.air,
         targetHour: state.targetHour,
+        toHour: state.toHour ?? state.targetHour,
         courtBearing: state.courtBearing,
         lights: state.lights,
         baseUrls: state.baseUrls,
@@ -402,6 +409,7 @@ function start(): void {
       } else {
         openerSelector = ".actionbar-adjust";
         state.atInput = state.targetHour;
+        state.toInput = state.toHour ?? state.targetHour;
       }
       runSheetActions({ type: "open", panel });
     },
@@ -517,26 +525,44 @@ function start(): void {
         { enableHighAccuracy: false, timeout: 10000 },
       );
     },
-    setAtInput(value) {
+    setFromInput(value) {
       state.atInput = value;
     },
-    applyTime() {
-      const result = validateAtInput(state.atInput);
+    setToInput(value) {
+      state.toInput = value;
+    },
+    setHourRange(from, to) {
+      const result = validateRangeInput(from, to);
       if (!result.ok) {
         state.applyErrorKey = result.errorKey;
         render();
         return;
       }
       state.applyErrorKey = null;
-      state.targetHour = result.targetHour;
-      state.atInput = result.targetHour;
+      state.targetHour = result.from;
+      state.toHour = result.to;
+      state.atInput = result.from;
+      state.toInput = result.to;
+      updateUrl();
+      recompute();
+      render();
+    },
+    applyTime() {
+      // Khoảng nhập từ bộ chọn: nếu thiếu `to` thì coi như cửa sổ suy biến một giờ.
+      const result = validateRangeInput(state.atInput, state.toInput ?? state.atInput);
+      if (!result.ok) {
+        state.applyErrorKey = result.errorKey;
+        render();
+        return;
+      }
+      state.applyErrorKey = null;
+      state.targetHour = result.from;
+      state.toHour = result.to;
+      state.atInput = result.from;
+      state.toInput = result.to;
       updateUrl();
       recompute();
       runSheetActions({ type: "close" });
-    },
-    useNextHour() {
-      state.atInput = ceilToHour(state.nowLocal);
-      render();
     },
     refresh() {
       void loadData();

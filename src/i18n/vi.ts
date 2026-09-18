@@ -33,7 +33,12 @@ export const vi = {
 
   "time.title": "Ngày và giờ",
   "time.label": "Chọn ngày và giờ",
-  "time.nextHour": "Giờ kế tiếp",
+  "time.rangeLabel": "Khoảng thời gian",
+  "time.from": "Từ",
+  "time.to": "Đến",
+  "time.span": "{from} – {to} · {hours} giờ",
+  "time.rangeScore": "Điểm cho cả khoảng: {score} · {verdict}",
+  "time.midpointNote": "Số liệu chi tiết ở giữa khoảng: {hour}",
   "time.local": "Giờ địa phương",
   "time.offset": "Lệch UTC",
   "time.apply": "Áp dụng",

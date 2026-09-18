@@ -15,7 +15,13 @@ export type GeoError = "search" | "locate" | null;
 export interface AppState {
   lang: Lang;
   location: GeoLocation;
+  /** Giờ BẮT ĐẦU của cửa sổ đánh giá (trước đây là giờ duy nhất). */
   targetHour: string;
+  /**
+   * Giờ KẾT THÚC của cửa sổ. Tùy chọn để mọi fixture cũ vẫn hợp lệ; nơi đọc
+   * dùng `state.toHour ?? state.targetHour` (cửa sổ suy biến một giờ).
+   */
+  toHour?: string;
   nowLocal: string;
   courtBearing: number;
   lights: boolean;
@@ -38,7 +44,10 @@ export interface AppState {
   geoResults: GeocodingResult[];
   searchQuery: string;
   draft: GeoLocation;
+  /** Ô nhập giờ BẮT ĐẦU (giữ tên cũ để không phá fixture). */
   atInput: string;
+  /** Ô nhập giờ KẾT THÚC; tùy chọn, nơi đọc dùng `?? atInput`. */
+  toInput?: string;
   /** Lỗi của lần bấm "Áp dụng" gần nhất; hiện ngay trong sheet, sheet vẫn mở. */
   applyErrorKey: ApplyErrorKey | null;
   theme: ThemeChoice;
@@ -68,9 +77,10 @@ export interface Actions {
   patchDraft: (patch: Partial<GeoLocation>) => void;
   applyLocation: () => void;
   locateMe: () => void;
-  setAtInput: (value: string) => void;
+  setFromInput: (value: string) => void;
+  setToInput: (value: string) => void;
+  setHourRange: (from: string, to: string) => void;
   applyTime: () => void;
-  useNextHour: () => void;
   refresh: () => void;
   checkUpdate: () => void;
   applyUpdate: () => void;

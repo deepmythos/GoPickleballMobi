@@ -1371,6 +1371,51 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Bộ chọn khoảng giờ: hai tay nắm 44×44 px, đủ lớn để kéo bằng một ngón. */
+.hour-range {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.hour-range-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.hour-range-handle {
+  flex: 1;
+  height: 44px;
+  accent-color: var(--good);
+}
+
+.hour-range-handle::-webkit-slider-thumb {
+  width: 44px;
+  height: 44px;
+}
+
+.hour-range-handle::-moz-range-thumb {
+  width: 44px;
+  height: 44px;
+}
+
+.hour-range-value {
+  min-width: 56px;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.hour-range-span,
+.hour-range-score {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+
 .toggle-row {
   display: flex;
   align-items: center;
