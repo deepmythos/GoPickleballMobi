@@ -12,6 +12,7 @@ import { APP_TIMEZONE, formatLocalISO, formatUtcOffset, getOffsetMinutes, zonedT
 import { BUILD_ID, BUILD_TIME } from "../build";
 import type { Lang } from "../types";
 import { unitText } from "../units";
+import { compassSector, courtDiagram, rotateCourtDiagram } from "./court-diagram";
 import { dragVisual, isSheetOpen, type SheetPanel } from "./sheet";
 import { factorIcon, gateIcon, makeIcon, ICONS } from "./icons";
 import { impactBar } from "./impact";
@@ -847,6 +848,34 @@ function renderInputsSheet(state: AppState, actions: Actions): HTMLElement[] {
     class: "bearing-value",
     text: `${formatNumber(lang, state.courtBearing)}${t(lang, "unit.deg")}`,
   });
+  const ev = state.evaluation;
+  const compassKey = (deg: number): MessageKey => MSG(`compass.${compassSector(deg)}`);
+  // Nhãn aria dựng từ i18n; phương vị/cao độ lấy nguyên từ evaluation.sun, không tính lại.
+  const diagramLabelFor = (bearing: number): string => {
+    const axis = Math.round(((bearing % 360) + 360) % 360) % 360;
+    const axisDir = t(lang, compassKey(bearing));
+    if (!ev) return t(lang, "court.diagramLabelUnknown", { axis, axisDir });
+    if (ev.point.is_day === 0 || ev.sun.elevation <= 0) {
+      return t(lang, "court.diagramLabelNight", { axis, axisDir });
+    }
+    return t(lang, "court.diagramLabel", {
+      axis,
+      axisDir,
+      sun: Math.round(ev.sun.azimuth),
+      sunDir: t(lang, compassKey(ev.sun.azimuth)),
+      alt: Math.round(ev.sun.elevation),
+      shadowDir: t(lang, compassKey(ev.sun.azimuth + 180)),
+    });
+  };
+  const courtSvg = courtDiagram({
+    bearing: state.courtBearing,
+    sun: ev ? { azimuth: ev.sun.azimuth, elevation: ev.sun.elevation } : null,
+    isDay: ev ? ev.point.is_day !== 0 : undefined,
+    variant: "full",
+    ariaLabel: diagramLabelFor(state.courtBearing),
+    northLabel: t(lang, "compass.n"),
+    noSunLabel: t(lang, "court.diagramNoSun"),
+  });
   return [
     // Khối phiên bản đứng ĐẦU sheet (ngay sau h2.sheet-title) để luôn thấy mà không phải cuộn.
     renderBuildBlock(state, actions),
@@ -892,24 +921,19 @@ function renderInputsSheet(state: AppState, actions: Actions): HTMLElement[] {
           value: String(state.courtBearing),
           class: "range",
           "aria-label": t(lang, "court.bearing"),
-          // Cập nhật nhãn ngay khi kéo (KHÔNG render lại DOM giữa cử chỉ),
+          // Cập nhật nhãn VÀ xoay hình ngay khi kéo (KHÔNG render lại DOM giữa cử chỉ),
           // chỉ chốt state lúc nhả tay để thanh trượt không bị huỷ.
           oninput: (e: Event) => {
             const value = Number((e.target as HTMLInputElement).value);
             bearingValue.textContent = `${formatNumber(lang, value)}${t(lang, "unit.deg")}`;
+            rotateCourtDiagram(courtSvg, value, diagramLabelFor(value));
           },
           onchange: (e: Event) => actions.setBearing(Number((e.target as HTMLInputElement).value)),
           onfocus: focusScroll,
         }),
         bearingValue,
       ),
-      h("p", { class: "sheet-note", text: t(lang, "court.bearingHint") }),
-      h(
-        "button",
-        { class: "btn ghost full", type: "button", onclick: () => actions.setBearing(0) },
-        makeIcon(ICONS.navigation, 16),
-        h("span", { text: t(lang, "court.northSouth") }),
-      ),
+      courtSvg,
     ),
     h(
       "div",

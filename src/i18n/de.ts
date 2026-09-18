@@ -43,10 +43,21 @@ export const de: Dict = {
 
   "court.title": "Platzausrichtung und Licht",
   "court.bearing": "Ausrichtung der Längsachse",
-  "court.bearingHint": "0° = Nord–Süd, 90° = Ost–West. Wird für die Blendungsberechnung genutzt.",
+  "court.diagramLabel": "Platz von oben, maßstabsgetreu. Längsachse {axis}° ({axisDir}). Sonne bei {sun}° ({sunDir}), {alt}° über dem Horizont, der Schatten fällt nach {shadowDir}.",
+  "court.diagramLabelNight": "Platz von oben, maßstabsgetreu. Längsachse {axis}° ({axisDir}). Keine Sonne — es ist dunkel, daher kein Schatten.",
+  "court.diagramLabelUnknown": "Platz von oben, maßstabsgetreu. Längsachse {axis}° ({axisDir}). Sonnenstand unbekannt.",
+  "court.diagramNoSun": "Keine Sonne",
   "court.lights": "Platz beleuchtet",
   "court.lightsHint": "Aktivieren, wenn der Platz bei Dunkelheit ausreichend beleuchtet ist.",
-  "court.northSouth": "Nord–Süd",
+
+  "compass.n": "Norden",
+  "compass.ne": "Nordosten",
+  "compass.e": "Osten",
+  "compass.se": "Südosten",
+  "compass.s": "Süden",
+  "compass.sw": "Südwesten",
+  "compass.w": "Westen",
+  "compass.nw": "Nordwesten",
 
   "lang.title": "Sprache",
   "lang.vi": "Tiếng Việt",

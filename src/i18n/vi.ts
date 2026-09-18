@@ -41,10 +41,21 @@ export const vi = {
 
   "court.title": "Hướng sân và ánh sáng",
   "court.bearing": "Hướng trục dọc sân",
-  "court.bearingHint": "0° = Bắc–Nam, 90° = Đông–Tây. Dùng để tính chói nắng.",
+  "court.diagramLabel": "Sân nhìn từ trên xuống, đúng tỉ lệ. Trục dài {axis}° ({axisDir}). Mặt trời ở {sun}° ({sunDir}), cao {alt}° so với đường chân trời nên bóng đổ về {shadowDir}.",
+  "court.diagramLabelNight": "Sân nhìn từ trên xuống, đúng tỉ lệ. Trục dài {axis}° ({axisDir}). Không có nắng — trời đã tối nên không vẽ bóng.",
+  "court.diagramLabelUnknown": "Sân nhìn từ trên xuống, đúng tỉ lệ. Trục dài {axis}° ({axisDir}). Chưa biết vị trí mặt trời.",
+  "court.diagramNoSun": "Không nắng",
   "court.lights": "Sân có đèn",
   "court.lightsHint": "Bật nếu sân đủ sáng để chơi khi trời tối.",
-  "court.northSouth": "Bắc–Nam",
+
+  "compass.n": "Bắc",
+  "compass.ne": "Đông Bắc",
+  "compass.e": "Đông",
+  "compass.se": "Đông Nam",
+  "compass.s": "Nam",
+  "compass.sw": "Tây Nam",
+  "compass.w": "Tây",
+  "compass.nw": "Tây Bắc",
 
   "lang.title": "Ngôn ngữ",
   "lang.vi": "Tiếng Việt",
