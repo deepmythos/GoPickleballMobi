@@ -8,7 +8,7 @@ import {
   type MessageKey,
 } from "../i18n";
 import { FACTOR_META } from "../scoring";
-import { APP_TIMEZONE, formatLocalISO } from "../time";
+import { APP_TIMEZONE, formatLocalISO, formatUtcOffset, getOffsetMinutes, zonedToUtc } from "../time";
 import { BUILD_ID, BUILD_TIME } from "../build";
 import type { Lang } from "../types";
 import { isSheetOpen, type SheetPanel } from "./sheet";
@@ -521,6 +521,11 @@ function renderAppBar(state: AppState, actions: Actions): HTMLElement {
   } else {
     summary = t(lang, "status.loading");
   }
+  // Toạ độ ĐANG DÙNG (lấy từ state đã áp dụng, không phải tên địa điểm): thanh trên phải cho biết
+  // app đang thực sự tính cho chỗ nào, kể cả khi tên còn là của lần chọn trước.
+  const coords = `${state.location.lat.toFixed(4)}, ${state.location.lon.toFixed(4)}`;
+  // Nhãn offset suy từ chính mốc giờ đang tính (targetHour) nên đúng cả khi DST đổi.
+  const offset = formatUtcOffset(getOffsetMinutes(zonedToUtc(state.targetHour)));
   return h(
     "header",
     { class: "appbar" },
@@ -547,10 +552,20 @@ function renderAppBar(state: AppState, actions: Actions): HTMLElement {
           "aria-label": t(lang, "header.changeLocation"),
           onclick: () => actions.openSheet("location"),
         },
-        h("span", { class: "appbar-loc-name", text: state.location.name }),
+        h(
+          "span",
+          { class: "appbar-loc-text" },
+          h("span", { class: "appbar-loc-name", text: state.location.name }),
+          h("span", { class: "appbar-coords", title: t(lang, "header.usingLocation"), text: coords }),
+        ),
         makeIcon(ICONS.chevronDown, 14),
       ),
-      h("span", { class: "appbar-time", text: formatDateTime(lang, state.targetHour) }),
+      h(
+        "span",
+        { class: "appbar-time" },
+        h("span", { class: "appbar-time-value", text: formatDateTime(lang, state.targetHour) }),
+        h("span", { class: "appbar-offset", title: t(lang, "time.offset"), text: `(${offset})` }),
+      ),
     ),
     h("p", { class: "appbar-verdict", text: summary }),
   );
