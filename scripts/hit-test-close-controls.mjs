@@ -310,10 +310,45 @@ async function main() {
 
   // ---- bước 1: hit-test mọi nút đóng, mỗi nút trong sheet của nó ----
   const cases = [
-    { name: "sheet Địa điểm — .sheet-close", open: ".infobar-loc", control: ".sheet-close" },
     { name: "sheet Thông số — .sheet-close", open: ".actionbar-adjust", control: ".sheet-close" },
-
   ];
+
+  // Khối Địa điểm giờ là khối gấp INLINE (không còn sheet): selector `.infobar-loc` cũ đã
+  // bị card trước xoá nên case sheet cho location fail ngay case đầu. Đo thẳng vào
+  // <summary> của details[data-collapse=location] và khẳng định chính details đó mở ra,
+  // KHÔNG có .sheet-backdrop nào xuất hiện.
+  {
+    const inlineDetails = "details[data-collapse=location]";
+    const inlineSummary = "details[data-collapse=location] > summary";
+    await cdp.js(`
+      const back = document.querySelector('.sheet-backdrop');
+      if (back) { back.click(); }
+      const details = document.querySelector('${inlineDetails}');
+      if (details) details.removeAttribute('open');
+      return true;
+    `);
+    await sleep(300);
+    await cdp.clickCentre(inlineSummary);
+    await sleep(400);
+    const inline = await cdp.js(`
+      const details = document.querySelector('${inlineDetails}');
+      const summary = details ? details.querySelector(':scope > summary') : null;
+      const body = details ? details.querySelector('.collapse-body.infobar-body') : null;
+      return {
+        selector: '${inlineDetails}',
+        control: '${inlineSummary}',
+        open: !!(details && details.hasAttribute('open')),
+        ariaExpanded: summary ? summary.getAttribute('aria-expanded') : null,
+        bodyInPage: !!(body && body.isConnected),
+        sheetBackdrop: !!document.querySelector('.sheet-backdrop'),
+      };
+    `);
+    inline.name = "khối Địa điểm inline — summary";
+    report.hits.push(inline);
+    if (!inline.open || inline.ariaExpanded !== "true" || !inline.bodyInPage || inline.sheetBackdrop) {
+      throw new Error(`case inline Địa điểm thất bại: ${JSON.stringify(inline)}`);
+    }
+  }
 
   for (const item of cases) {
     await cdp.js(`

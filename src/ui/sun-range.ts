@@ -63,6 +63,8 @@ export function diagramLabelFor(
       end: range.end.label,
       sunStart: Math.round(range.start.azimuth),
       sunEnd: Math.round(range.end.azimuth),
+      altStart: Math.round(range.start.elevation),
+      altEnd: Math.round(range.end.elevation),
       midpoint: range.midpoint ?? "",
     });
   }

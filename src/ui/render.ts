@@ -559,8 +559,9 @@ function renderInfo(state: AppState, actions: Actions): HTMLElement {
     {
       class: "collapse-summary infobar-summary",
       "aria-expanded": open ? "true" : "false",
-      // Nhãn cho trình đọc màn hình: dòng tóm tắt là nút mở khối địa điểm.
-      "aria-label": t(lang, "header.changeLocation"),
+      // Nhãn cho trình đọc màn hình: dòng tóm tắt là nút mở khối địa điểm. Phải tự mô tả
+      // đủ tên sân + toạ độ đang dùng, KHÔNG chỉ "Đổi địa điểm" (sẽ ghi đè tên truy cập).
+      "aria-label": `${state.location.name} · ${coords} · ${t(lang, "location.expandHint")}`,
     },
     h(
       "span",

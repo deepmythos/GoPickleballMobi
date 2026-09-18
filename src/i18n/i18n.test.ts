@@ -10,6 +10,17 @@ describe("i18n dictionaries", () => {
     }
   });
 
+  it("use exactly the same placeholders in every language", () => {
+    const placeholders = (text: string): string =>
+      (text.match(/\{[a-zA-Z0-9_]+\}/g) ?? []).sort().join(",");
+    for (const key of Object.keys(vi) as (keyof typeof vi)[]) {
+      const expected = placeholders(vi[key]);
+      for (const lang of ["de", "en"] as const) {
+        expect(placeholders(dictionaries[lang][key]), `${lang}.${key}`).toBe(expected);
+      }
+    }
+  });
+
   it("have no empty strings", () => {
     for (const dict of Object.values(dictionaries)) {
       for (const value of Object.values(dict)) {

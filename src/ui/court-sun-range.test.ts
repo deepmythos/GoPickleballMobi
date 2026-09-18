@@ -4,7 +4,7 @@ import { evaluate } from "../evaluate";
 import { solarPosition } from "../sun";
 import { APP_TIMEZONE, zonedToUtc } from "../time";
 import type { HourlyPoint } from "../types";
-import { courtDiagram } from "./court-diagram";
+import { courtDiagram, sunDistanceForAltitude, sunPointAt } from "./court-diagram";
 import { renderApp } from "./render";
 import { initialSheetState, sheetReducer } from "./sheet";
 
@@ -237,7 +237,8 @@ describe("hình sân — khoảng mặt trời (hai mặt trời + cung chuyển
       `[court-sun] start 16:00 az=${expectedStart.azimuth.toFixed(2)}°, end 18:00 az=${expectedEnd.azimuth.toFixed(2)}°`,
     );
 
-    // (ii) Một path cung của hình FULL, có dấu chiều tăng dần, hai góc = hai phương vị, sweep-flag = 1.
+    // (ii) Một path cung của hình FULL: polyline lấy mẫu (KHÔNG còn cung tròn bán
+    // kính cố định), mở bằng M rồi tiếp nối bằng L, hai góc = hai phương vị.
     const arcs = byClass(svg, "cd-sun-arc");
     expect(arcs.length, "phải có đúng một cung cd-sun-arc trên hình full").toBe(1);
     const arc = arcs[0];
@@ -248,7 +249,32 @@ describe("hình sân — khoảng mặt trời (hai mặt trời + cung chuyển
     const sweep = (((Number(arc.attrs["data-sun-arc-end"]) - Number(arc.attrs["data-sun-arc-start"])) % 360) + 360) % 360;
     expect(sweep).toBeGreaterThan(0);
     expect(sweep).toBeLessThan(360);
-    expect(arc.attrs.d, "cung phải dùng sweep-flag = 1").toMatch(/A\s+[\d.]+\s+[\d.]+\s+0\s+[01]\s+1\s/);
+    expect(arc.attrs.d, "cung phải là polyline M…L…").toMatch(/^M\s+[-\d.]+\s+[-\d.]+\s+L\s+/);
+    // Bán kính các mẫu cung theo cao độ: KHÔNG hằng số, và hai đầu khớp glyph.
+    const radiusMin = Number(svg.attrs["data-sun-arc-radius-min"]);
+    const radiusMax = Number(svg.attrs["data-sun-arc-radius-max"]);
+    expect(Number.isFinite(radiusMin) && Number.isFinite(radiusMax)).toBe(true);
+    expect(radiusMax, "bán kính mẫu cung phải đổi theo cao độ").toBeGreaterThan(radiusMin);
+    const startDistance = Number(svg.attrs["data-sun-distance-start"]);
+    const endDistance = Number(svg.attrs["data-sun-distance-end"]);
+    expect(startDistance).toBe(sunDistanceForAltitude(expectedStart.elevation));
+    expect(endDistance).toBe(sunDistanceForAltitude(expectedEnd.elevation));
+    expect(Math.min(startDistance, endDistance)).toBeGreaterThanOrEqual(radiusMin);
+    expect(Math.max(startDistance, endDistance)).toBeLessThanOrEqual(radiusMax);
+    // Polyline bắt đầu ĐÚNG tại tâm glyph đầu và kết thúc ĐÚNG tại tâm glyph cuối.
+    const coords = [...arc.attrs.d.matchAll(/([ML])\s+(-?[\d.]+)\s+(-?[\d.]+)/g)].map((m) => ({
+      x: Number(m[2]),
+      y: Number(m[3]),
+    }));
+    expect(coords.length, "N = 24 → 25 điểm mẫu khi cả hai đầu trên chân trời").toBe(25);
+    const first = coords[0];
+    const last = coords[coords.length - 1];
+    const expectedFirst = sunPointAt(expectedStart.azimuth, expectedStart.elevation);
+    const expectedLast = sunPointAt(expectedEnd.azimuth, expectedEnd.elevation);
+    expect(Math.abs(first.x - expectedFirst.x)).toBeLessThan(0.01);
+    expect(Math.abs(first.y - expectedFirst.y)).toBeLessThan(0.01);
+    expect(Math.abs(last.x - expectedLast.x)).toBeLessThan(0.01);
+    expect(Math.abs(last.y - expectedLast.y)).toBeLessThan(0.01);
     expect(byClass(svg, "cd-sun-arc-head").length, "thiếu đầu mũi tên cung").toBe(1);
 
     // (iii) Đúng hai nhãn giờ mang hai mốc của cửa sổ.

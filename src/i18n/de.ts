@@ -30,6 +30,7 @@ export const de: Dict = {
   "location.searchFailed": "Ortssuche fehlgeschlagen. Erneut versuchen oder Koordinaten manuell eingeben.",
   "location.invalidCoords": "Ungültige Koordinaten. Breite zwischen -90 und 90, Länge zwischen -180 und 180.",
   "location.defaultName": "Pickleball-Plätze, Offenthaler Straße, Dietzenbach",
+  "location.expandHint": "tippen, um die Ortssteuerung zu öffnen",
 
   "time.title": "Datum und Uhrzeit",
   "time.rangeLabel": "Zeitraum",
@@ -50,7 +51,7 @@ export const de: Dict = {
   "court.bearing": "Ausrichtung der Längsachse",
   "court.axis": "{dir} · {deg}°",
   "court.diagramLabel": "Platz von oben, maßstabsgetreu. Längsachse {axis}° ({axisDir}). Sonne bei {sun}° ({sunDir}), {alt}° über dem Horizont, der Schatten fällt nach {shadowDir}.",
-  "court.diagramLabelRange": "Platz von oben, maßstabsgetreu. Längsachse {axis}° ({axisDir}). Die Sonne wandert von {start} nach {end} im Uhrzeigersinn (Azimut {sunStart}° → {sunEnd}°). Der Schatten gilt für die Mitte des Zeitraums: {midpoint}.",
+  "court.diagramLabelRange": "Platz von oben, maßstabsgetreu. Längsachse {axis}° ({axisDir}). Die Sonne wandert von {start} nach {end} im Uhrzeigersinn (Azimut {sunStart}° → {sunEnd}°, Höhe {altStart}° → {altEnd}°). Der Schatten gilt für die Mitte des Zeitraums: {midpoint}.",
   "court.diagramLabelNight": "Platz von oben, maßstabsgetreu. Längsachse {axis}° ({axisDir}). Keine Sonne — es ist dunkel, daher kein Schatten.",
   "court.diagramLabelUnknown": "Platz von oben, maßstabsgetreu. Längsachse {axis}° ({axisDir}). Sonnenstand unbekannt.",
   "court.diagramNoSun": "Keine Sonne",
