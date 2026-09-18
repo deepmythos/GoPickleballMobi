@@ -147,8 +147,6 @@ export const en: Dict = {
   "panel.showRaw": "Show raw conditions and source data",
   "panel.hideRaw": "Collapse raw conditions",
 
-  "raw.title": "Raw conditions",
-  "raw.subtitle": "API values for the selected hour.",
   "raw.temperature": "Temperature",
   "raw.apparent": "Feels like",
   "raw.humidity": "Humidity",

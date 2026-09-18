@@ -147,8 +147,6 @@ export const de: Dict = {
   "panel.showRaw": "Rohbedingungen und Originaldaten anzeigen",
   "panel.hideRaw": "Rohbedingungen einklappen",
 
-  "raw.title": "Rohdaten",
-  "raw.subtitle": "API-Werte zur gewählten Stunde.",
   "raw.temperature": "Temperatur",
   "raw.apparent": "Gefühlt",
   "raw.humidity": "Luftfeuchte",
