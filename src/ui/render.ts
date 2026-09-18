@@ -946,8 +946,6 @@ function renderInputsSheet(state: AppState, actions: Actions): HTMLElement[] {
     courtSvg.setAttribute("aria-label", diagramLabelFor(state.courtBearing, range));
   };
   return [
-    // Khối phiên bản đứng ĐẦU sheet (ngay sau h2.sheet-title) để luôn thấy mà không phải cuộn.
-    renderBuildBlock(state, actions),
     h(
       "div",
       { class: "setting-block" },
@@ -1059,6 +1057,9 @@ function renderInputsSheet(state: AppState, actions: Actions): HTMLElement[] {
       makeIcon(ICONS.mapPin, 16),
       h("span", { text: t(lang, "header.changeLocation") }),
     ),
+    // Khối phiên bản nằm CUỐI sheet (theo yêu cầu chủ dự án): muốn thấy thì cuộn `.sheet`
+    // xuống đáy. Vẫn render VÔ ĐIỀU KIỆN, không phụ thuộc trạng thái cập nhật.
+    renderBuildBlock(state, actions),
   ];
 }
 

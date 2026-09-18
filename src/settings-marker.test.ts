@@ -1,12 +1,16 @@
 // Marker phiên bản trong sheet "Điều chỉnh" (src/ui/render.ts → renderInputsSheet).
 //
-// Trạng thái ĐỎ/XANH trước khi sửa (đo trên cây render cũ):
-//   (a) marker có trong DOM (nằm CUỐI sheet) → XANH trước khi sửa (chỉ chứng minh có mặt, không chứng minh vị trí).
-//   (b) phần tử đầu sau h2.sheet-title phải là setting-block chứa marker → ĐỎ (trước đây là khối giờ).
+// Trạng thái ĐỎ/XANH (đo trên cây render cũ — khối phiên bản còn ở ĐẦU sheet):
+//   (a) marker có trong DOM → XANH (chỉ chứng minh có mặt, không chứng minh vị trí).
+//   (b) khối phiên bản phải là CON CUỐI của .sheet, sau mọi setting-block khác và sau cả
+//       nút mở sheet vị trí (dataset.sheetOpener="location") → ĐỎ trên cây cũ (khối đang ở
+//       đầu sheet), XANH sau khi chuyển khối xuống cuối.
 //   (c) chưa có nút data-build-check / kết quả kiểm tra → ĐỎ.
 //   (d) 5 khoá i18n build.check* chưa tồn tại → ĐỎ.
 //   (e) marker mang class sheet-note (12px, màu --muted) → ĐỎ.
-// Sau khi sửa: cả 5 khẳng định XANH; (b) mới là điều kiện thật sự được kiểm (marker ở đầu sheet).
+//   (f) khối phiên bản render VÔ ĐIỀU KIỆN dù updateCheck idle/thiếu và không có evaluation
+//       → ĐỎ trên cây cũ (khối nằm ở đầu nên không phải con cuối), XANH sau khi sửa.
+// Sau khi sửa: cả 6 khẳng định XANH; (b) + (f) là điều kiện thật sự được kiểm (marker ở cuối sheet).
 //
 // Môi trường test là "node" nên phải tự dựng DOM tối giản. appendChildren() trong render.ts
 // phân biệt element với text bằng `child instanceof Node`, nên Node/document phải được gán vào
@@ -152,17 +156,23 @@ describe("sheet Điều chỉnh — mã phiên bản và kiểm tra cập nhật
     if (BUILD_TIME) expect(marker.textContent).toContain(time);
   });
 
-  it("(b) khối phiên bản là setting-block ĐẦU TIÊN ngay sau h2.sheet-title", () => {
+  it("(b) khối phiên bản là CON CUỐI của .sheet, sau mọi setting-block và nút mở sheet vị trí", () => {
     const root = render(baseState());
     const sheet = byClass(root, "sheet")[0];
     expect(sheet, "thiếu .sheet").toBeDefined();
     const children = sheet.children;
     expect(children[0].className).toContain("sheet-title");
-    const firstSettingBlock = children.find((child) =>
-      child.className.split(/\s+/).includes("setting-block"),
-    );
-    expect(firstSettingBlock).toBe(children[1]);
-    expect(byClass(children[1], "build-marker").length).toBe(1);
+    const last = children[children.length - 1];
+    // Con cuối phải là setting-block chứa đúng một .build-marker và một nút data-build-check.
+    expect(last.className.split(/\s+/)).toContain("setting-block");
+    expect(byClass(last, "build-marker").length).toBe(1);
+    expect(byDataset(last, "buildCheck", "1").length).toBe(1);
+    // Nút mở sheet vị trí phải nằm TRƯỚC khối cuối.
+    const openerIndex = children.findIndex((child) => child.dataset.sheetOpener === "location");
+    expect(openerIndex).toBeGreaterThanOrEqual(0);
+    expect(openerIndex).toBeLessThan(children.length - 1);
+    // Không nhân bản: toàn sheet chỉ có đúng một .build-marker.
+    expect(byClass(sheet, "build-marker").length).toBe(1);
   });
 
   it("(c) đúng một nút data-build-check với nhãn từ điển", () => {
@@ -218,5 +228,22 @@ describe("sheet Điều chỉnh — mã phiên bản và kiểm tra cập nhật
     const root = render(baseState());
     const marker = byClass(root, "build-marker")[0];
     expect(marker.className.split(/\s+/)).not.toContain("sheet-note");
+  });
+
+  it("(f) khối phiên bản render VÔ ĐIỀU KIỆN khi updateCheck idle/thiếu và không có evaluation", () => {
+    for (const updateCheck of [undefined, { status: "idle" as const }]) {
+      const root = render(
+        baseState({
+          evaluation: null,
+          update: { available: false, dismissed: false },
+          updateCheck,
+        }),
+      );
+      const sheet = byClass(root, "sheet")[0];
+      expect(sheet, "thiếu .sheet").toBeDefined();
+      const last = sheet.children[sheet.children.length - 1];
+      expect(byClass(last, "build-marker").length).toBe(1);
+      expect(byDataset(last, "buildCheck", "1").length).toBe(1);
+    }
   });
 });
