@@ -38,6 +38,11 @@ export interface AppState {
   sheet: SheetState;
   /** Panel "điều kiện thô" mặc định gấp; chỉ mở khi người dùng chạm. */
   rawOpen: boolean;
+  /**
+   * Trạng thái gấp/mở của hai khối gấp TRONG TRANG (Ngày/giờ + Hướng sân, và Địa điểm).
+   * Cố ý KHÔNG lưu localStorage/URL: đây là trạng thái UI tạm thời, render lại thì lấy từ đây.
+   */
+  blocksOpen: { timecourt: boolean; location: boolean };
   geoStatus: GeoStatus;
   /** Nguồn của trạng thái geoStatus="error"/"loading" gần nhất — quyết định nhãn hiển thị. */
   geoError: GeoError;
@@ -64,7 +69,7 @@ export interface AppState {
 }
 
 export interface Actions {
-  openSheet: (panel: "inputs" | "location") => void;
+  openSheet: (panel: "inputs") => void;
   closeSheet: () => void;
   toggleRaw: () => void;
   setLang: (lang: Lang) => void;

@@ -13,8 +13,8 @@ function openInputs(): SheetState {
 
 describe("sheetReducer", () => {
   it("opens a panel and reports the sheet as open", () => {
-    const state = sheetReducer(initialSheetState, { type: "open", panel: "location" });
-    expect(state.panel).toBe("location");
+    const state = sheetReducer(initialSheetState, { type: "open", panel: "inputs" });
+    expect(state.panel).toBe("inputs");
     expect(isSheetOpen(state)).toBe(true);
   });
 
@@ -57,9 +57,10 @@ describe("sheetReducer", () => {
     expect(state.dragOffsetPx).toBe(0);
   });
 
-  it("switches to the new panel when opening another one", () => {
-    const state = sheetReducer(openInputs(), { type: "open", panel: "location" });
-    expect(state.panel).toBe("location");
+  it("re-opening a panel returns to a clean panel state", () => {
+    const dragged = sheetReducer(openInputs(), { type: "dragStart" });
+    const state = sheetReducer(dragged, { type: "open", panel: "inputs" });
+    expect(state.panel).toBe("inputs");
     expect(state.dragOffsetPx).toBe(0);
     expect(state.dragging).toBe(false);
   });
@@ -69,7 +70,7 @@ describe("sheetReducer", () => {
     state = sheetReducer(state, { type: "dragMove", offsetPx: 120 });
     state = sheetReducer(state, { type: "dragEnd" });
     expect(state).toEqual(initialSheetState);
-    state = sheetReducer(state, { type: "open", panel: "location" });
-    expect(state).toEqual({ panel: "location", dragging: false, dragOffsetPx: 0 });
+    state = sheetReducer(state, { type: "open", panel: "inputs" });
+    expect(state).toEqual({ panel: "inputs", dragging: false, dragOffsetPx: 0 });
   });
 });

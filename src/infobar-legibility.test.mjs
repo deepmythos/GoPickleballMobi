@@ -204,12 +204,19 @@ describe("khối thông tin — không còn lớp kính nào có thể nằm tr�
     }
     expect(decl(bodyOf(source, ".sheet-close"), "touch-action")).toBe("manipulation");
 
-    // Nút mở bảng Địa điểm giờ nằm trong khối thông tin: vẫn phải ≥ 44×44.
-    const loc = bodyOf(source, ".infobar-loc");
-    expect(loc, "thiếu rule .infobar-loc").not.toBeNull();
+    // Dòng tóm tắt của khối Địa điểm (trước đây là nút .infobar-loc) dùng mẫu gấp chung
+    // .collapse-summary: vẫn phải ≥ 44×44 và rộng hết dòng.
+    const loc = bodyOf(source, ".collapse-summary");
+    expect(loc, "thiếu rule .collapse-summary").not.toBeNull();
     const pxOf = (value) => Number.parseFloat(String(value).replace("px", ""));
-    expect(pxOf(decl(loc, "min-width")), ".infobar-loc phải rộng ≥ 44px").toBeGreaterThanOrEqual(44);
-    expect(pxOf(decl(loc, "min-height")), ".infobar-loc phải cao ≥ 44px").toBeGreaterThanOrEqual(44);
+    expect(pxOf(decl(loc, "min-height")), ".collapse-summary phải cao ≥ 44px").toBeGreaterThanOrEqual(44);
+    expect(decl(loc, "width"), ".collapse-summary phải rộng hết dòng").toBe("100%");
+    // Override riêng cho khối địa điểm vẫn phải tồn tại (giữ nhịp lề trong thẻ .infobar).
+    expect(bodyOf(source, ".infobar-summary"), "thiếu rule .infobar-summary").not.toBeNull();
+    // Vẫn không có mẹo xếp lớp / làm nhạt chữ nào trên dòng tóm tắt.
+    for (const prop of ["z-index", "opacity", "position"]) {
+      expect(decl(loc, prop), `.collapse-summary không được có ${prop}`).toBeNull();
+    }
   });
 });
 

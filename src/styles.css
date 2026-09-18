@@ -245,34 +245,6 @@ body {
   box-shadow: var(--elev-1);
 }
 
-.infobar-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: 44px;
-}
-
-.infobar-loc {
-  flex: 1;
-  min-width: 44px;
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-2);
-  border: none;
-  border-radius: var(--radius-sm);
-  background: var(--transparent);
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.infobar-loc:active {
-  background: var(--surface-2);
-}
-
 .infobar-loc-text {
   flex: 1;
   min-width: 0;
@@ -303,13 +275,8 @@ body {
   text-overflow: ellipsis;
 }
 
-.infobar-loc .icon {
-  color: var(--faint);
-}
-
-/* Ngày/giờ: một dòng RIÊNG ngay dưới khối địa điểm (xem render.ts renderInfo).
-   Không còn `align-items: flex-end` — chữ nay bắt đầu từ lề trái, thẳng hàng với tên sân
-   (thụt đúng bằng padding ngang của nút địa điểm), nên mốc giờ không còn nằm bên phải. */
+/* Ngày/giờ nằm CẠNH khối địa điểm trong dòng tóm tắt (xem render.ts renderInfo);
+   nó là một mục flex nên đứng bên phải khối địa điểm, trước chevron. */
 .infobar-time {
   display: flex;
   flex-direction: row;
@@ -325,6 +292,95 @@ body {
 
 .infobar-offset {
   color: var(--faint);
+}
+
+/* --------------------------------------------- khối gấp trong trang */
+
+/* Mẫu gấp dùng chung: <details class="collapse"> + <summary class="collapse-summary">.
+   Đây là cùng cơ chế gốc của hàng yếu tố, không phải cơ chế thứ hai. Mặc định gấp;
+   chỉ khi state.blocksOpen tương ứng = true thì render mới gắn thuộc tính `open`. */
+.collapse {
+  display: block;
+}
+
+.collapse-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  list-style: none;
+}
+
+/* Bỏ dấu mũi tên mặc định của trình duyệt (đã có chevron riêng). */
+.collapse-summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Hai mảnh tóm tắt KHÔNG bao giờ bị cắt cụt: mỗi mảnh nowrap, cả dòng flex-wrap nên
+   khi hẹp thì xuống dòng chứ không hiện dấu ba chấm. */
+.collapse-summary-values {
+  flex: 1;
+  min-width: 0;
+}
+
+.collapse-span,
+.collapse-axis {
+  white-space: nowrap;
+}
+
+.collapse-chevron {
+  flex: none;
+  color: var(--faint);
+  transition: transform var(--dur-base) var(--ease-out);
+}
+
+.collapse[open] .collapse-chevron {
+  transform: rotate(180deg);
+}
+
+.collapse-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-1) var(--space-3) var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+.collapse-body-title {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: 700;
+}
+
+/* Khối gộp Ngày/giờ + Hướng sân là một thẻ surface duy nhất (như hàng yếu tố). */
+section[data-block="timecourt"] .collapse {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+section[data-block="timecourt"] .collapse[open] {
+  border-color: var(--border-strong);
+  box-shadow: var(--elev-1);
+}
+
+/* Nội dung mở rộng của khối địa điểm nằm trong thẻ .infobar nên giữ nguyên nền surface. */
+.infobar-summary {
+  padding: var(--space-1) var(--space-2);
+}
+
+.hour-range-slot {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .main {
@@ -552,7 +608,7 @@ section[data-block] {
   gap: var(--space-3);
 }
 
-section[data-block="court"] .bearing-row {
+section[data-block] .bearing-row {
   min-height: 44px;
 }
 
@@ -1125,7 +1181,8 @@ section[data-block] svg.court-diagram {
   }
   .raw-toggle .icon,
   .switch,
-  .knob {
+  .knob,
+  .collapse-chevron {
     transition: none;
   }
 }

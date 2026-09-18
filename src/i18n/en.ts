@@ -43,8 +43,12 @@ export const en: Dict = {
   "time.apply": "Apply",
   "time.invalidTime": "Invalid time. Pick a complete date and time.",
 
+  // Tóm tắt khối gấp Ngày/giờ + Hướng sân: ghép mảnh khoảng giờ với mảnh trục sân.
+  "collapse.timeCourtSummary": "{span} · {axis}",
+
   "court.title": "Court orientation and light",
   "court.bearing": "Long-axis bearing",
+  "court.axis": "{dir} · {deg}°",
   "court.diagramLabel": "Top-down court to scale. Long axis {axis}° ({axisDir}). Sun at {sun}° ({sunDir}), {alt}° above the horizon, so the shadow falls {shadowDir}.",
   "court.diagramLabelRange": "Top-down court to scale. Long axis {axis}° ({axisDir}). The sun moves from {start} to {end} clockwise (azimuth {sunStart}° → {sunEnd}°). The shadow is drawn for the midpoint hour {midpoint}.",
   "court.diagramLabelNight": "Top-down court to scale. Long axis {axis}° ({axisDir}). No sun — it is dark, so no shadow is drawn.",

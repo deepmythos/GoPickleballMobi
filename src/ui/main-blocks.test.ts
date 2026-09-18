@@ -215,6 +215,7 @@ function makeState(sheet: AppState["sheet"]): AppState {
     fetching: false,
     sheet,
     rawOpen: false,
+    blocksOpen: { timecourt: false, location: false },
     geoStatus: "idle",
     geoError: null,
     geoResults: [],
@@ -237,17 +238,30 @@ function render(state: AppState): FakeNode {
 }
 
 describe("màn hình chính — hai khối dời từ sheet Cài đặt", () => {
-  it("(1) .hour-range và hình full nằm trong <main>, KHÔNG có trong .sheet (kể cả khi sheet mở)", () => {
+  it("(1) khối gộp giữ .hour-range và hình full trong <main>, KHÔNG có trong .sheet (kể cả khi sheet mở)", () => {
     const root = render(makeState(openInputs()));
     const main = mainOf(root);
     const sheet = byClass(root, "sheet")[0];
     expect(sheet, "thiếu .sheet khi panel mở").toBeDefined();
 
-    expect(byClass(main, "hour-range").length, "main phải có .hour-range").toBe(1);
+    // MỘT section gộp chứa MỘT <details> mang cả bộ chọn khoảng giờ lẫn hình sân full.
+    const timecourt = findAll(main, (n) => n.dataset.block === "timecourt")[0];
+    expect(timecourt, "thiếu section[data-block=timecourt]").toBeDefined();
+    const details = findAll(
+      timecourt,
+      (n) => n.tagName === "details" && n.dataset.collapse === "timecourt",
+    )[0];
+    expect(details, "thiếu details[data-collapse=timecourt]").toBeDefined();
+    expect(byClass(details, "hour-range").length, "picker phải nằm trong details gộp").toBe(1);
     expect(
-      diagramVariant(main, "full"),
-      "main phải có svg.court-diagram[data-variant=full]",
+      diagramVariant(details, "full"),
+      "hình full phải nằm trong CÙNG details gộp",
     ).toBeDefined();
+    // Không còn hai section rời data-block=time / data-block=court.
+    expect(
+      main.children.some((c) => c.dataset.block === "time" || c.dataset.block === "court"),
+      "không được còn section rời time/court",
+    ).toBe(false);
 
     expect(byClass(sheet, "hour-range").length, "sheet KHÔNG được còn .hour-range").toBe(0);
     expect(
@@ -256,24 +270,20 @@ describe("màn hình chính — hai khối dời từ sheet Cài đặt", () => 
     ).toBe(0);
   });
 
-  it("(2) thứ tự <main>: khối giờ rồi khối sân nằm ở ĐÁY, SAU .raw và ngay trước footer", () => {
+  it("(2) khối gộp nằm ở ĐÁY <main>, SAU .raw và là con CUỐI cùng", () => {
     const root = render(makeState(initialSheetState));
     const main = mainOf(root);
     const heroIndex = main.children.findIndex((child) => hasClass(child, "hero"));
     const rawIndex = main.children.findIndex((child) => hasClass(child, "raw"));
     const reasonsIndex = main.children.findIndex((child) => hasClass(child, "reasons"));
-    const timeIndex = main.children.findIndex((child) => child.dataset.block === "time");
-    const courtIndex = main.children.findIndex((child) => child.dataset.block === "court");
+    const timecourtIndex = main.children.findIndex((child) => child.dataset.block === "timecourt");
 
     expect(heroIndex, "thiếu hero").toBeGreaterThanOrEqual(0);
     expect(reasonsIndex, "thiếu section.reasons").toBeGreaterThan(heroIndex);
     expect(rawIndex, "thiếu section.raw").toBeGreaterThan(reasonsIndex);
-    // Hai khối KHÔNG còn ngay sau hero; chúng ở cuối <main>, sau .raw.
-    expect(timeIndex, "thiếu section[data-block=time]").toBeGreaterThan(rawIndex);
-    expect(courtIndex, "thiếu section[data-block=court]").toBe(timeIndex + 1);
-    // "Ngay trước footer": footer là em của <main>, nên hai khối phải là hai con CUỐI của <main>.
-    expect(courtIndex, "khối sân phải là con cuối cùng của <main>").toBe(main.children.length - 1);
-    expect(timeIndex, "khối giờ phải ngay trước khối sân").toBe(courtIndex - 1);
+    expect(timecourtIndex, "thiếu section[data-block=timecourt]").toBeGreaterThan(rawIndex);
+    // "Ngay trước footer": footer là em của <main>, nên khối gộp phải là con CUỐI của <main>.
+    expect(timecourtIndex, "khối gộp phải là con cuối cùng của <main>").toBe(main.children.length - 1);
   });
 
   it("(3) kéo tay nắm `to` 18 -> 19: CẢ HAI hình đổi đầu cuối trong cùng một turn, giữ nguyên <svg>", () => {

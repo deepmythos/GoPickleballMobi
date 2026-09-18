@@ -41,8 +41,12 @@ export const vi = {
   "time.apply": "Áp dụng",
   "time.invalidTime": "Thời gian không hợp lệ. Chọn ngày và giờ đầy đủ.",
 
+  // Tóm tắt khối gấp Ngày/giờ + Hướng sân: ghép mảnh khoảng giờ với mảnh trục sân.
+  "collapse.timeCourtSummary": "{span} · {axis}",
+
   "court.title": "Hướng sân và ánh sáng",
   "court.bearing": "Hướng trục dọc sân",
+  "court.axis": "{dir} · {deg}°",
   "court.diagramLabel": "Sân nhìn từ trên xuống, đúng tỉ lệ. Trục dài {axis}° ({axisDir}). Mặt trời ở {sun}° ({sunDir}), cao {alt}° so với đường chân trời nên bóng đổ về {shadowDir}.",
   "court.diagramLabelRange": "Sân nhìn từ trên xuống, đúng tỉ lệ. Trục dài {axis}° ({axisDir}). Mặt trời đi từ {start} sang {end} theo chiều kim đồng hồ (phương vị {sunStart}° → {sunEnd}°). Bóng vẽ cho giờ giữa khoảng là {midpoint}.",
   "court.diagramLabelNight": "Sân nhìn từ trên xuống, đúng tỉ lệ. Trục dài {axis}° ({axisDir}). Không có nắng — trời đã tối nên không vẽ bóng.",

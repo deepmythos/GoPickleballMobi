@@ -43,8 +43,12 @@ export const de: Dict = {
   "time.apply": "Übernehmen",
   "time.invalidTime": "Ungültige Zeit. Bitte Datum und Uhrzeit vollständig wählen.",
 
+  // Tóm tắt khối gấp Ngày/giờ + Hướng sân: ghép mảnh khoảng giờ với mảnh trục sân.
+  "collapse.timeCourtSummary": "{span} · {axis}",
+
   "court.title": "Platzausrichtung und Licht",
   "court.bearing": "Ausrichtung der Längsachse",
+  "court.axis": "{dir} · {deg}°",
   "court.diagramLabel": "Platz von oben, maßstabsgetreu. Längsachse {axis}° ({axisDir}). Sonne bei {sun}° ({sunDir}), {alt}° über dem Horizont, der Schatten fällt nach {shadowDir}.",
   "court.diagramLabelRange": "Platz von oben, maßstabsgetreu. Längsachse {axis}° ({axisDir}). Die Sonne wandert von {start} nach {end} im Uhrzeigersinn (Azimut {sunStart}° → {sunEnd}°). Der Schatten gilt für die Mitte des Zeitraums: {midpoint}.",
   "court.diagramLabelNight": "Platz von oben, maßstabsgetreu. Längsachse {axis}° ({axisDir}). Keine Sonne — es ist dunkel, daher kein Schatten.",
