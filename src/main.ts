@@ -24,7 +24,7 @@ import { APP_TIMEZONE, ceilToHour, formatLocalISO } from "./time";
 import type { BaseUrls, GeoLocation, Lang } from "./types";
 import { hostOf, renderApp } from "./ui/render";
 import { createSwipeLatch, isExcludedTouchTarget, isHorizontalDominant, type SwipeSample, type TouchTargetTraits } from "./ui/gesture";
-import { initialSheetState, isSheetOpen, sheetReducer, type SheetAction } from "./ui/sheet";
+import { dragVisual, initialSheetState, isSheetOpen, sheetReducer, type SheetAction } from "./ui/sheet";
 import { resolveTheme, themeAttribute, THEME_STORAGE_KEY } from "./ui/theme";
 import { validateAtInput, validateDraftLocation } from "./ui/validate";
 import type { Actions, AppState, ThemeChoice } from "./ui/state";
@@ -32,7 +32,8 @@ import type { Actions, AppState, ThemeChoice } from "./ui/state";
 const DEFAULT_LOCATION: GeoLocation = {
   lat: 49.9960846,
   lon: 8.7605459,
-  name: "Pickleball-Plätze, Offenthaler Straße, Dietzenbach",
+  // Danh từ riêng: lấy nguyên văn khoá từ điển (giá trị y hệt ở cả vi/de/en).
+  name: t("vi", "location.defaultName"),
 };
 
 interface WindowVerdict {
@@ -613,10 +614,16 @@ function start(): void {
     if (Math.abs(dy) > Math.abs(dx) && dy > 0) {
       e.preventDefault();
       touchState.dy = dy;
+      // Fast-path mỗi frame vẫn ghi thẳng DOM cho mượt, nhưng giá trị ghi ra CHÍNH LÀ
+      // SheetState.dragOffsetPx (cùng trường renderSheet đọc): state và DOM luôn khớp nhau,
+      // nên re-render giữa chừng không làm mất độ lệch. Cố ý KHÔNG gọi render().
+      if (!state.sheet.dragging) state.sheet = sheetReducer(state.sheet, { type: "dragStart" });
+      state.sheet = sheetReducer(state.sheet, { type: "dragMove", offsetPx: dy });
+      const drag = dragVisual(state.sheet.dragOffsetPx);
       const wrap = root.querySelector<HTMLElement>(".sheet-wrap");
       const backdrop = root.querySelector<HTMLElement>(".sheet-backdrop");
-      if (wrap) wrap.style.transform = `translateY(${dy}px)`;
-      if (backdrop) backdrop.style.opacity = String(Math.max(0, 1 - dy / 320));
+      if (wrap) wrap.style.transform = `translateY(${drag.offsetPx}px)`;
+      if (backdrop) backdrop.style.opacity = String(drag.backdropOpacity);
     }
   }
 

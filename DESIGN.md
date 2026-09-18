@@ -5,7 +5,7 @@
 | Lựa chọn | Lý do |
 | --- | --- |
 | **Vite + TypeScript** | Build ra HTML/CSS/JS tĩnh, không backend; type-check bắt lỗi sớm; dev server nhanh. Không dùng framework UI vì app chỉ có một màn hình, một luồng dữ liệu — thêm React/Vue chỉ tăng bundle và khó kiểm soát giao diện "không giống template". |
-| **Vanilla DOM render từ state** | Toàn bộ giao diện là hàm của `AppState`. Một chiều, dễ test, không có state ẩn. Đổi giờ/hướng sân/đèn chỉ tính lại cục bộ, không gọi mạng lại. |
+| **Vanilla DOM render từ state** | Toàn bộ giao diện là hàm của `AppState`. Một chiều, dễ test, không có state ẩn. Đổi giờ/hướng sân/đèn chỉ tính lại cục bộ, không gọi mạng lại. Mỗi frame kéo sheet còn ghi thẳng `transform`/`opacity` vào DOM như fast-path, nhưng giá trị ghi ra CHÍNH LÀ `SheetState.dragOffsetPx` — cùng trường mà `renderSheet` đọc — nên re-render giữa chừng vẫn giữ đúng độ lệch. |
 | **Vitest** | Cùng hệ sinh thái Vite, chạy nhanh, test hàm thuần (chấm điểm, thời gian, mặt trời) và test token CSS bằng `readFileSync`. |
 | **Lucide (SVG icon)** | Bộ icon thật, nét mảnh 1.9px hợp nhãn thị giác, tree-shakeable nên bundle chỉ tăng ~vài KB. Không dùng emoji làm icon. |
 | **Không thư viện i18n ngoài** | Chỉ 3 ngôn ngữ, cần định dạng ngày/số theo locale và đảm bảo không sót chuỗi. Một từ điển phẳng + test so khớp khoá giữa các ngôn ngữ là đủ và minh bạch. |
@@ -191,6 +191,10 @@ thuộc ba nhóm trên và cố ý giữ thô vì gắn với hợp đồng cứ
 - `border-radius: 50%` cho hình tròn thật (nút đóng, knob, chấm bullet) — `--radius-pill` là cho
   viên thuốc, `50%` mới đúng hình tròn.
 - `max-width: 430px`, `min-width: 56px`, `top/right/left` định vị, `letter-spacing` tiêu đề.
+- Metadata tĩnh trong `index.html` (`<title>`, `meta[name=description]`, `meta[name=apple-mobile-web-app-title]`,
+  `meta[name=application-name]`, `<noscript>`) và `public/manifest.webmanifest` (`lang: "vi"`) **CỐ Ý** chỉ có
+  tiếng Việt: chúng được phục vụ trước khi JS biết ngôn ngữ đang chọn, `vi` là ngôn ngữ mặc định/gốc của app,
+  còn mọi chuỗi bên trong giao diện vẫn đi qua từ điển `src/i18n/*`. Đây là lựa chọn có chủ đích, không phải sót.
 
 ## 9. Mô hình chấm điểm
 

@@ -49,3 +49,9 @@ export function sheetReducer(state: SheetState, action: SheetAction): SheetState
 export function isSheetOpen(state: SheetState): boolean {
   return state.panel !== "none";
 }
+
+/** Hình dáng thị giác của lần kéo: một công thức duy nhất cho cả render lẫn fast-path mỗi frame. */
+export function dragVisual(offsetPx: number): { offsetPx: number; backdropOpacity: number } {
+  const offset = Math.max(0, offsetPx);
+  return { offsetPx: offset, backdropOpacity: Math.max(0, 1 - offset / 320) };
+}

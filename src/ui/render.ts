@@ -11,7 +11,8 @@ import { FACTOR_META } from "../scoring";
 import { APP_TIMEZONE, formatLocalISO, formatUtcOffset, getOffsetMinutes, zonedToUtc } from "../time";
 import { BUILD_ID, BUILD_TIME } from "../build";
 import type { Lang } from "../types";
-import { isSheetOpen, type SheetPanel } from "./sheet";
+import { unitText } from "../units";
+import { dragVisual, isSheetOpen, type SheetPanel } from "./sheet";
 import { factorIcon, gateIcon, makeIcon, ICONS } from "./icons";
 import { impactBar } from "./impact";
 import type { Actions, AppState } from "./state";
@@ -226,7 +227,7 @@ function renderFactors(state: AppState, animate: boolean): HTMLElement {
           : t(lang, "raw.night")
         : factor.unit === "bool"
           ? t(lang, "common.none")
-          : `${formatNumber(lang, factor.value, { maximumFractionDigits: 1 })} ${factor.unit}`;
+          : `${formatNumber(lang, factor.value, { maximumFractionDigits: 1 })} ${unitText(lang, factor.unit)}`;
     // Thanh tác động: độ dài THẬT tính từ |impact| / maxWeight, không bịa.
     const bar = impactBar(factor.impact, meta ? meta.maxWeight : 0);
     const summary = h(
@@ -932,12 +933,16 @@ function renderSheet(state: AppState, actions: Actions): HTMLElement | null {
   const entering = panel !== "none" && panel !== lastSheetPanel;
   lastSheetPanel = panel;
   if (panel === "none") return null;
+  // Độ lệch kéo tay được ĐỌC TỪ STATE: re-render giữa chừng (mở details, đổi giờ…) không nuốt mất nó.
+  const drag = dragVisual(state.sheet.dragOffsetPx);
   const isLocation = panel === "location";
   const body = isLocation ? renderLocationSheet(state, actions) : renderInputsSheet(state, actions);
   return h(
     "div",
     {
       class: "sheet-backdrop",
+      // Khi offset = 0 thì KHÔNG gắn style, để animation `sheet-enter` chạy nguyên như cũ.
+      style: drag.offsetPx > 0 ? `opacity: ${drag.backdropOpacity}` : undefined,
       onclick: (e: MouseEvent) => {
         if (e.target === e.currentTarget) actions.closeSheet();
       },
@@ -946,6 +951,7 @@ function renderSheet(state: AppState, actions: Actions): HTMLElement | null {
       "div",
       {
         class: `sheet-wrap${entering ? " sheet-enter" : ""}`,
+        style: drag.offsetPx > 0 ? `transform: translateY(${drag.offsetPx}px)` : undefined,
         role: "dialog",
         "aria-modal": "true",
         "aria-labelledby": "sheet-title",

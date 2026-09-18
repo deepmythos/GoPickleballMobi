@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { t } from "../i18n";
 import { renderApp } from "./render";
-import { initialSheetState, sheetReducer } from "./sheet";
+import { dragVisual, initialSheetState, sheetReducer } from "./sheet";
 
 // Chỉ import module đã có ở nhánh nền: ./render, ./sheet, ../i18n.
 // Kiểu AppState/Actions suy trực tiếp từ chữ ký renderApp để không import ./state.
@@ -242,5 +242,32 @@ describe("G5 — lỗi áp dụng hiện ngay trong sheet, sheet vẫn mở", ()
   it("không hiện lỗi áp dụng khi applyErrorKey là null", () => {
     const root = render(state({ sheet: openLocation(), applyErrorKey: null }));
     expect(byClass(root, "apply-error").length).toBe(0);
+  });
+});
+
+describe("G6 — độ lệch khi kéo sheet phải đi qua state", () => {
+  it("render lại giữa chừng vẫn giữ đúng độ lệch đã kéo", () => {
+    let sheet = sheetReducer(openInputs(), { type: "dragStart" });
+    sheet = sheetReducer(sheet, { type: "dragMove", offsetPx: 40 });
+    const root = render(state({ sheet }));
+    const wrap = byClass(root, "sheet-wrap");
+    expect(wrap.length).toBe(1);
+    expect(wrap[0].attrs.style).toContain("translateY(40px)");
+    const backdrop = byClass(root, "sheet-backdrop");
+    expect(backdrop.length).toBe(1);
+    expect(backdrop[0].attrs.style).toContain("opacity: 0.875");
+  });
+
+  it("offset 0 không gắn style để animation sheet-enter chạy nguyên", () => {
+    const root = render(state({ sheet: openInputs() }));
+    const wrap = byClass(root, "sheet-wrap");
+    expect(wrap.length).toBe(1);
+    expect(wrap[0].attrs.style).toBeUndefined();
+    expect(byClass(root, "sheet-backdrop")[0].attrs.style).toBeUndefined();
+  });
+
+  it("dragVisual kẹp offset âm và suy độ mờ backdrop", () => {
+    expect(dragVisual(-5)).toEqual({ offsetPx: 0, backdropOpacity: 1 });
+    expect(dragVisual(1000)).toEqual({ offsetPx: 1000, backdropOpacity: 0 });
   });
 });
