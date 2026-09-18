@@ -35,6 +35,8 @@ export const de: Dict = {
   "location.useMyLocation": "Meinen Standort nutzen",
   "location.locating": "Standort wird ermittelt…",
   "location.geoDenied": "Standort nicht verfügbar. Bitte Koordinaten eingeben.",
+  "location.searchFailed": "Ortssuche fehlgeschlagen. Erneut versuchen oder Koordinaten manuell eingeben.",
+  "location.invalidCoords": "Ungültige Koordinaten. Breite zwischen -90 und 90, Länge zwischen -180 und 180.",
   "location.defaultName": "Pickleball-Plätze, Offenthaler Straße, Dietzenbach",
 
   "time.title": "Datum und Uhrzeit",
@@ -43,6 +45,7 @@ export const de: Dict = {
   "time.local": "Ortszeit",
   "time.offset": "UTC-Versatz",
   "time.apply": "Übernehmen",
+  "time.invalidTime": "Ungültige Zeit. Bitte Datum und Uhrzeit vollständig wählen.",
 
   "court.title": "Platzausrichtung und Licht",
   "court.bearing": "Ausrichtung der Längsachse",

@@ -92,6 +92,7 @@ function state(overrides: Partial<AppState> = {}): AppState {
     sheet: initialSheetState,
     rawOpen: false,
     geoStatus: "idle",
+    geoError: null,
     geoResults: [],
     searchQuery: "",
     draft: { ...DEFAULT_LOCATION },
@@ -99,6 +100,7 @@ function state(overrides: Partial<AppState> = {}): AppState {
     theme: "system",
     offline: false,
     update: { available: false, dismissed: false },
+    applyErrorKey: null,
     ...overrides,
   };
 }

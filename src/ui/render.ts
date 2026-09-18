@@ -15,6 +15,7 @@ import { isSheetOpen, type SheetPanel } from "./sheet";
 import { factorIcon, gateIcon, makeIcon, ICONS } from "./icons";
 import { impactBar } from "./impact";
 import type { Actions, AppState } from "./state";
+import { parseCoordInput } from "./validate";
 
 type Child = Node | string | number | null | undefined | false;
 
@@ -635,7 +636,9 @@ function field(label: string, input: HTMLElement): HTMLElement {
 function geoResults(state: AppState, actions: Actions): HTMLElement | null {
   const lang = state.lang;
   if (state.geoStatus === "loading") {
-    return h("p", { class: "sheet-note", text: t(lang, "location.searching") });
+    const text =
+      state.geoError === "locate" ? t(lang, "location.locating") : t(lang, "location.searching");
+    return h("p", { class: "sheet-note", text });
   }
   if (state.geoResults.length > 0) {
     return h(
@@ -661,7 +664,9 @@ function geoResults(state: AppState, actions: Actions): HTMLElement | null {
     return h("p", { class: "sheet-note", text: t(lang, "location.noResults") });
   }
   if (state.geoStatus === "error") {
-    return h("p", { class: "sheet-note error-text", text: t(lang, "location.geoDenied") });
+    const text =
+      state.geoError === "search" ? t(lang, "location.searchFailed") : t(lang, "location.geoDenied");
+    return h("p", { class: "sheet-note error-text", text });
   }
   return null;
 }
@@ -712,8 +717,8 @@ function renderLocationSheet(state: AppState, actions: Actions): Child[] {
           inputmode: "decimal",
           step: "any",
           class: "input",
-          value: String(state.draft.lat),
-          oninput: (e: Event) => actions.patchDraft({ lat: Number((e.target as HTMLInputElement).value) }),
+          value: Number.isFinite(state.draft.lat) ? String(state.draft.lat) : "",
+          oninput: (e: Event) => actions.patchDraft({ lat: parseCoordInput((e.target as HTMLInputElement).value) }),
           onfocus: focusScroll,
         }),
       ),
@@ -724,8 +729,8 @@ function renderLocationSheet(state: AppState, actions: Actions): Child[] {
           inputmode: "decimal",
           step: "any",
           class: "input",
-          value: String(state.draft.lon),
-          oninput: (e: Event) => actions.patchDraft({ lon: Number((e.target as HTMLInputElement).value) }),
+          value: Number.isFinite(state.draft.lon) ? String(state.draft.lon) : "",
+          oninput: (e: Event) => actions.patchDraft({ lon: parseCoordInput((e.target as HTMLInputElement).value) }),
           onfocus: focusScroll,
         }),
       ),
@@ -736,6 +741,12 @@ function renderLocationSheet(state: AppState, actions: Actions): Child[] {
       makeIcon(ICONS.locate, 16),
       h("span", { text: t(lang, "location.useMyLocation") }),
     ),
+    state.applyErrorKey === "location.invalidCoords"
+      ? h("p", {
+          class: "sheet-note error-text apply-error",
+          text: t(lang, "location.invalidCoords"),
+        })
+      : null,
     h(
       "button",
       { class: "btn primary full", type: "button", onclick: actions.applyLocation },
@@ -798,6 +809,9 @@ function renderInputsSheet(state: AppState, actions: Actions): HTMLElement[] {
         h("span", { text: t(lang, "time.nextHour") }),
       ),
       h("p", { class: "sheet-note", text: `${t(lang, "time.local")}: ${APP_TIMEZONE}` }),
+      state.applyErrorKey === "time.invalidTime"
+        ? h("p", { class: "sheet-note error-text apply-error", text: t(lang, "time.invalidTime") })
+        : null,
       h("button", { class: "btn primary full", type: "button", onclick: actions.applyTime }, t(lang, "time.apply")),
     ),
     h(

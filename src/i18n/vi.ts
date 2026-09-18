@@ -33,6 +33,8 @@ export const vi = {
   "location.useMyLocation": "Dùng vị trí của tôi",
   "location.locating": "Đang định vị…",
   "location.geoDenied": "Không lấy được vị trí. Nhập toạ độ thủ công.",
+  "location.searchFailed": "Tìm địa điểm thất bại. Thử lại hoặc nhập toạ độ thủ công.",
+  "location.invalidCoords": "Toạ độ không hợp lệ. Nhập vĩ độ trong khoảng -90..90 và kinh độ -180..180.",
   "location.defaultName": "Pickleball-Plätze, Offenthaler Straße, Dietzenbach",
 
   "time.title": "Ngày và giờ",
@@ -41,6 +43,7 @@ export const vi = {
   "time.local": "Giờ địa phương",
   "time.offset": "Lệch UTC",
   "time.apply": "Áp dụng",
+  "time.invalidTime": "Thời gian không hợp lệ. Chọn ngày và giờ đầy đủ.",
 
   "court.title": "Hướng sân và ánh sáng",
   "court.bearing": "Hướng trục dọc sân",

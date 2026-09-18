@@ -26,6 +26,7 @@ import { hostOf, renderApp } from "./ui/render";
 import { createSwipeLatch, isExcludedTouchTarget, isHorizontalDominant, type SwipeSample, type TouchTargetTraits } from "./ui/gesture";
 import { initialSheetState, isSheetOpen, sheetReducer, type SheetAction } from "./ui/sheet";
 import { resolveTheme, themeAttribute, THEME_STORAGE_KEY } from "./ui/theme";
+import { validateAtInput, validateDraftLocation } from "./ui/validate";
 import type { Actions, AppState, ThemeChoice } from "./ui/state";
 
 const DEFAULT_LOCATION: GeoLocation = {
@@ -137,10 +138,12 @@ function initialiseState(params: URLSearchParams): AppState {
     sheet: initialSheetState,
     rawOpen: false,
     geoStatus: "idle",
+    geoError: null,
     geoResults: [],
     searchQuery: "",
     draft: { ...location },
     atInput: targetHour,
+    applyErrorKey: null,
     theme,
     offline: typeof navigator !== "undefined" && navigator.onLine === false,
     update: { available: false, dismissed: false },
@@ -378,6 +381,7 @@ function start(): void {
 
   const actions: Actions = {
     openSheet(panel) {
+      state.applyErrorKey = null;
       if (panel === "location") {
         // Nhớ nút đã mở: appbar khi mở từ ngoài, nút trong sheet khi mở từ sheet khác.
         openerSelector = isSheetOpen(state.sheet)
@@ -387,6 +391,7 @@ function start(): void {
         state.searchQuery = "";
         state.geoResults = [];
         state.geoStatus = "idle";
+        state.geoError = null;
       } else {
         openerSelector = ".actionbar-adjust";
         state.atInput = state.targetHour;
@@ -438,6 +443,7 @@ function start(): void {
       const query = state.searchQuery.trim();
       if (!query) return;
       state.geoStatus = "loading";
+      state.geoError = null;
       state.geoResults = [];
       render();
       const language = state.lang === "de" ? "de" : "en";
@@ -450,6 +456,7 @@ function start(): void {
         .catch(() => {
           state.geoResults = [];
           state.geoStatus = "error";
+          state.geoError = "search";
           render();
         });
     },
@@ -461,14 +468,14 @@ function start(): void {
       state.draft = { ...state.draft, ...patch };
     },
     applyLocation() {
-      const { lat, lon, name } = state.draft;
-      if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
-      if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return;
-      state.location = {
-        lat,
-        lon,
-        name: name.trim() || `${lat.toFixed(4)}, ${lon.toFixed(4)}`,
-      };
+      const result = validateDraftLocation(state.draft);
+      if (!result.ok) {
+        state.applyErrorKey = result.errorKey;
+        render();
+        return;
+      }
+      state.applyErrorKey = null;
+      state.location = result.location;
       persist();
       updateUrl();
       runSheetActions({ type: "close" });
@@ -477,10 +484,12 @@ function start(): void {
     locateMe() {
       if (!navigator.geolocation) {
         state.geoStatus = "error";
+        state.geoError = "locate";
         render();
         return;
       }
       state.geoStatus = "loading";
+      state.geoError = "locate";
       render();
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -490,10 +499,12 @@ function start(): void {
             name: t(state.lang, "location.useMyLocation"),
           };
           state.geoStatus = "idle";
+          state.geoError = null;
           render();
         },
         () => {
           state.geoStatus = "error";
+          state.geoError = "locate";
           render();
         },
         { enableHighAccuracy: false, timeout: 10000 },
@@ -503,10 +514,15 @@ function start(): void {
       state.atInput = value;
     },
     applyTime() {
-      const match = state.atInput.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/);
-      if (!match) return;
-      state.targetHour = `${state.atInput.slice(0, 13)}:00`;
-      state.atInput = state.targetHour;
+      const result = validateAtInput(state.atInput);
+      if (!result.ok) {
+        state.applyErrorKey = result.errorKey;
+        render();
+        return;
+      }
+      state.applyErrorKey = null;
+      state.targetHour = result.targetHour;
+      state.atInput = result.targetHour;
       updateUrl();
       recompute();
       runSheetActions({ type: "close" });
