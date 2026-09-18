@@ -1,7 +1,4 @@
 export const vi = {
-  "app.name": "Pickleball Go/No-Go",
-  "app.subtitle": "Có nên ra sân lúc này không?",
-  "app.loading": "Đang tải…",
   "common.close": "Đóng",
   "common.none": "—",
 
@@ -15,15 +12,12 @@ export const vi = {
   "sheet.grabber": "Nắm kéo để đóng",
 
   "header.changeLocation": "Đổi địa điểm",
-  "header.changeTime": "Đổi ngày giờ",
-  "header.settings": "Cài đặt",
   "header.usingLocation": "Đang tính cho",
 
   "location.title": "Địa điểm",
   "location.nameLabel": "Tên địa điểm",
   "location.latLabel": "Vĩ độ",
   "location.lonLabel": "Kinh độ",
-  "location.searchLabel": "Tìm theo tên",
   "location.searchPlaceholder": "Ví dụ: Dietzenbach",
   "location.search": "Tìm",
   "location.searching": "Đang tìm…",
@@ -68,14 +62,9 @@ export const vi = {
 
   "hero.scoreLabel": "Điểm điều kiện",
   "hero.outOf": "/ 100",
-  "hero.base": "Điểm gốc",
-  "hero.factorSum": "Tổng đóng góp",
 
   "reason.title": "Vì sao điểm này?",
   "reason.subtitle": "Xếp theo mức ảnh hưởng, lớn nhất trước.",
-  "reason.up": "kéo điểm lên",
-  "reason.down": "kéo điểm xuống",
-  "reason.flat": "trung tính",
   "reason.upTemplate": "{note} Yếu tố này cộng {points} điểm.",
   "reason.downTemplate": "{note} Yếu tố này trừ {points} điểm.",
   "reason.flatTemplate": "{note} Không ảnh hưởng đáng kể.",
@@ -170,7 +159,6 @@ export const vi = {
   "raw.sunset": "Hoàng hôn",
   "raw.day": "Có",
   "raw.night": "Không",
-  "raw.airQuality": "Không khí",
 
   "wmo.clear": "Trời trong",
   "wmo.mainlyClear": "Ít mây",
@@ -197,19 +185,16 @@ export const vi = {
   "assumption.courtBearing": "Sân mặc định hướng Bắc–Nam; đổi được ở Cài đặt.",
 
   "status.loading": "Đang tải dữ liệu…",
-  "status.refreshing": "Đang làm mới…",
   "status.errorTitle": "Không tải được dữ liệu",
   "status.errorBody": "Kiểm tra kết nối rồi thử lại.",
   "status.retry": "Thử lại",
   "status.stale": "Dữ liệu cũ",
   "status.staleHint": "Đang hiển thị bản lưu lúc {time}.",
-  "status.missingTitle": "Thiếu dữ liệu",
   "status.missingBody": "Thiếu: {list}. Điểm chỉ tính trên các yếu tố còn lại.",
   "status.confidence": "Độ tin cậy",
   "confidence.high": "Cao",
   "confidence.medium": "Trung bình",
   "confidence.low": "Thấp",
-  "status.noTargetHour": "API không trả dữ liệu cho giờ {time}.",
   "status.noData": "Không có dữ liệu để hiển thị.",
   "status.loadingHost": "Đang tải dữ liệu từ {host}…",
   "status.errorNetworkHost": "Không kết nối được tới {host} — lỗi mạng.",
@@ -223,13 +208,8 @@ export const vi = {
   "footer.timezone": "Múi giờ",
   "footer.forecast": "Dự báo",
   "footer.air": "Không khí",
-  "footer.geocoding": "Geocoding",
   "footer.refresh": "Làm mới",
 
-  "error.network": "Lỗi mạng.",
-  "error.http": "Máy chủ trả lỗi.",
-  "error.parse": "Dữ liệu trả về không hợp lệ.",
-  "error.unknown": "Lỗi không xác định.",
 
   "build.title": "Phiên bản",
   "build.builtAt": "Bản dựng lúc {time}",
@@ -247,8 +227,6 @@ export const vi = {
   "unit.deg": "°",
   "unit.uv": "UV",
   "unit.eaqi": "EAQI",
-  "unit.hpa": "hPa",
-  "unit.wm2": "W/m²",
   "unit.km": "km",
   "unit.ugm3": "µg/m³",
 } as const;
