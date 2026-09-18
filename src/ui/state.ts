@@ -44,8 +44,12 @@ export interface AppState {
   theme: ThemeChoice;
   offline: boolean;
   update: { available: boolean; dismissed: boolean };
-  /** Kết quả của lần bấm "Kiểm tra cập nhật" gần nhất. */
-  updateCheck: {
+  /**
+   * Kết quả của lần bấm "Kiểm tra cập nhật" gần nhất.
+   * Tùy chọn (optional) để mọi fixture AppState cũ/khác làn vẫn hợp lệ; nơi đọc
+   * dùng `?? "idle"` để mặc định là chưa kiểm tra.
+   */
+  updateCheck?: {
     status: "idle" | "checking" | "current" | "available" | "unsupported" | "error";
   };
 }

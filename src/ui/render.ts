@@ -783,7 +783,7 @@ function segmented<T extends string>(
 
 function renderBuildBlock(state: AppState, actions: Actions): HTMLElement {
   const lang = state.lang;
-  const status = state.updateCheck.status;
+  const status = state.updateCheck?.status ?? "idle";
   // Mỗi kết quả kiểm tra đều có ĐÚNG một câu trả lời cho người dùng; "idle" để trống.
   const resultText =
     status === "checking"

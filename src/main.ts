@@ -538,7 +538,7 @@ function start(): void {
       void loadData();
     },
     checkUpdate() {
-      if (state.updateCheck.status === "checking") return;
+      if (state.updateCheck?.status === "checking") return;
       state.updateCheck = { status: "checking" };
       render();
       void checkForUpdate().then((result) => {
