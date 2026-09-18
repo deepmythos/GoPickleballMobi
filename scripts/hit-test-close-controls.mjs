@@ -132,6 +132,9 @@ class Cdp {
   async screenshot(path, clip = null) {
     const shot = await this.send("Page.captureScreenshot", {
       format: "png",
+      // Clip tính theo toạ độ TÀI LIỆU và bị kẹp trong khung nhìn hiện tại → phải là
+      // false, nếu không Chromium render cả trang ở trạng thái chưa cuộn (thanh sticky
+      // nằm ở vị trí dòng chảy) và clip sẽ chụp nhầm nội dung.
       captureBeyondViewport: false,
       ...(clip ? { clip: { ...clip, scale: clip.scale ?? SCALE } } : {}),
     });
@@ -279,7 +282,7 @@ async function main() {
   });
   await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 1 });
 
-  const report = { url, viewport: `${WIDTH}x${HEIGHT}`, dist, steps: [], hits: [], taps: [], touchSequences: [] };
+  const report = { url, viewport: `${WIDTH}x${HEIGHT}`, dist, steps: [], hits: [], taps: [], touchSequences: [], scrollStates: [] };
 
   // Bộ đếm để CHỨNG MINH cơ chế "nuốt cú chạm": cử chỉ kéo của sheet gọi
   // `preventDefault()` ở `touchmove`, và điều đó huỷ luôn `click` của nút đang bấm.
@@ -361,9 +364,19 @@ async function main() {
 
   // ---- bước 2: ảnh thanh trên (sáng/tối, ở đầu trang và khi đã cuộn) ----
   const shots = [];
-  const barClip = await cdp.js(`
+  // Clip của CDP tính theo toạ độ TÀI LIỆU, nên phải cộng `scrollY` — nếu không, ở trạng
+  // thái đã cuộn clip sẽ nằm ngoài khung nhìn và ảnh trả về trống.
+  const barClip = () => cdp.js(`
     const r = document.querySelector('.appbar').getBoundingClientRect();
-    return { x: 0, y: 0, width: ${WIDTH}, height: Math.ceil(r.height) };
+    return { x: 0, y: window.scrollY + r.top, width: ${WIDTH}, height: Math.ceil(r.height) };
+  `);
+  const scrollState = () => cdp.js(`
+    const bar = document.querySelector('.appbar').getBoundingClientRect();
+    const cs = getComputedStyle(document.querySelector('.appbar'));
+    return { windowScrollY: Math.round(window.scrollY), barTop: Math.round(bar.top),
+             barBottom: Math.round(bar.bottom), position: cs.position, top: cs.top,
+             scrollHeight: document.scrollingElement.scrollHeight,
+             innerHeight: window.innerHeight, stickyAtTop: Math.abs(bar.top) < 2 };
   `);
 
   for (const theme of ["light", "dark"]) {
@@ -373,12 +386,15 @@ async function main() {
     await sleep(1200);
     await cdp.js("window.scrollTo(0, 0); return true;");
     await sleep(200);
-    shots.push(await cdp.screenshot(join(args.out, `appbar-${theme}-rest.png`), barClip));
+    const restScroll = await scrollState();
+    shots.push(await cdp.screenshot(join(args.out, `appbar-${theme}-rest.png`), await barClip()));
     shots.push(await cdp.screenshot(join(args.out, `viewport-${theme}-rest.png`)));
     await cdp.js("window.scrollTo(0, 900); return true;");
-    await sleep(400);
-    shots.push(await cdp.screenshot(join(args.out, `appbar-${theme}-scrolled.png`), barClip));
+    await sleep(500);
+    const afterScroll = await scrollState();
+    shots.push(await cdp.screenshot(join(args.out, `appbar-${theme}-scrolled.png`), await barClip()));
     shots.push(await cdp.screenshot(join(args.out, `viewport-${theme}-scrolled.png`)));
+    report.scrollStates.push({ theme, rest: restScroll, scrolled: afterScroll });
     // Chữ trong thanh có bị làm nhạt không? (opacity/filter/mix-blend-mode + chuỗi tổ tiên)
     const text = await cdp.js(`
       const probe = (sel) => {
