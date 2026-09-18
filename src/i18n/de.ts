@@ -218,6 +218,11 @@ export const de: Dict = {
   "build.updateAvailable": "Neue Version verfügbar — neu laden",
   "build.updateReload": "Neu laden",
   "build.updateDismiss": "Später",
+  "build.checkUpdate": "Nach Update suchen",
+  "build.checking": "Prüfe auf Update…",
+  "build.upToDate": "Du hast die neueste Version",
+  "build.checkUnsupported": "Dieses Gerät unterstützt die Update-Prüfung nicht",
+  "build.checkFailed": "Prüfung fehlgeschlagen — später erneut versuchen",
   "status.offline": "Offline – zuletzt gespeicherter Stand wird angezeigt.",
 
   "unit.kmh": "km/h",

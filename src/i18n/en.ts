@@ -218,6 +218,11 @@ export const en: Dict = {
   "build.updateAvailable": "New version — reload",
   "build.updateReload": "Reload",
   "build.updateDismiss": "Later",
+  "build.checkUpdate": "Check for update",
+  "build.checking": "Checking for updates…",
+  "build.upToDate": "You have the latest version",
+  "build.checkUnsupported": "This device does not support update checks",
+  "build.checkFailed": "Could not check — try again later",
   "status.offline": "Offline — showing the last saved reading.",
 
   "unit.kmh": "km/h",
